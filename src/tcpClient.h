@@ -75,7 +75,9 @@
   #endif
 
 
+  // missing function in LwIP
   static const char *gai_strerror (int err);
+
 
   class tcpClient_t : public tcpConnection_t {
 

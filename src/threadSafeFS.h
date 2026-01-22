@@ -103,6 +103,8 @@
             bool userHasRightToAccessDirectory (Cstring<255> fullPath, Cstring<255> homeDirectory);
 
             Cstring<300> fileInformation (const char *fileOrDirectory, bool showFullPath = false);
+
+            bool readConfiguration (char *buffer, size_t bufferSize, const char *fileName);
       };
 
       // fprintf

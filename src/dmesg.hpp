@@ -2,9 +2,8 @@
  
     dmesg.hpp
 
-    This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
+    This file is part of Multitasking HTTP, FTP, Telnet, NTP, SMTP servers and clients for ESP32 - Arduino library: https://github.com/BojanJurca/Multitasking-Http-Ftp-Telnet-Ntp-Smtp-Servers-and-clients-for-ESP32-Arduino-Library
 
-      - Use dmesgQueue.push_back (...) functions to put system messages in circular message queue.
 
       - Use dmesg telnet command to display messages in the dmesg message queue.
 
@@ -46,7 +45,7 @@
             return *this;
         }
 
-        inline dmesgQueueEntry_t& operator << (const char *value) {
+        inline dmesgQueueEntry_t& operator << (const char *value) {    
             this->message += value;
             return *this;
         }
@@ -62,16 +61,72 @@
             return *this;
         }
 
-        /*
-        inline bool operator == (const dmesgQueueEntry_t& other) {
-            return this->milliseconds == other.milliseconds && this->message == other.message;
+        template<size_t N>
+        inline dmesgQueueEntry_t& operator << (const char (&value) [N]) {
+            this->message += static_cast<const char *> (value);
+            return *this;
         }
-        */
+
+        // integers
+
+        inline dmesgQueueEntry_t& operator << (const int16_t& value) {
+            this->message += value;
+            return *this;
+        }
+
+        inline dmesgQueueEntry_t& operator << (const uint16_t& value) {
+            this->message += value;
+            return *this;
+        }
+
+        inline dmesgQueueEntry_t& operator << (const int32_t& value) {
+            this->message += value;
+            return *this;
+        }
+
+        inline dmesgQueueEntry_t& operator << (const uint32_t& value) {
+            this->message += value;
+            return *this;
+        }
+
+        inline dmesgQueueEntry_t& operator << (const int64_t& value) {
+            this->message += value;
+            return *this;
+        }
+
+        inline dmesgQueueEntry_t& operator << (const uint64_t& value) {
+            this->message += value;
+            return *this;
+        }
+
+        // floats
+
+        inline dmesgQueueEntry_t& operator << (const float& value) {
+            this->message += value;
+            return *this;
+        }
+
+        inline dmesgQueueEntry_t& operator << (const double& value) {
+            this->message += value;
+            return *this;
+        }
+
+        inline dmesgQueueEntry_t& operator << (const long double& value) {
+            this->message += value;
+            return *this;
+        }
+
+        // time
+
+        inline dmesgQueueEntry_t& operator << (const struct tm& value) {
+            this->message += value;
+            return *this;
+        }
 
     };
 
 
-    // define dmesg circular queue 
+    // declare dmesg circular queue 
     template<size_t maxSize> class dmesgQueue_t : public threadSafeCircularQueue<dmesgQueueEntry_t, maxSize> {
 
         public:
@@ -151,7 +206,18 @@
                 return r;
             }
 
-            inline dmesgQueueEntry_t& operator << (const int& value) {
+            template<size_t N>
+            inline dmesgQueueEntry_t& operator << (const char (&value) [N]) {
+                threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::Lock ();
+                threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::push_back ( { millis (), time (NULL), static_cast<const char *> (value) } );
+                dmesgQueueEntry_t& r = threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::back ();
+                threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::Unlock ();
+                return r;
+            }
+
+            // integers
+
+            inline dmesgQueueEntry_t& operator << (const int16_t& value) {
                 threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::Lock ();
                 threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::push_back ( { millis (), time (NULL), value } );
                 dmesgQueueEntry_t& r = threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::back ();
@@ -159,7 +225,7 @@
                 return r;
             }
 
-            inline dmesgQueueEntry_t& operator << (const unsigned int& value) {
+            inline dmesgQueueEntry_t& operator << (const uint16_t& value) {
                 threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::Lock ();
                 threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::push_back ( { millis (), time (NULL), value } );
                 dmesgQueueEntry_t& r = threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::back ();
@@ -167,7 +233,7 @@
                 return r;
             }
 
-            inline dmesgQueueEntry_t& operator << (const long& value) {
+            inline dmesgQueueEntry_t& operator << (const int32_t& value) {
                 threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::Lock ();
                 threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::push_back ( { millis (), time (NULL), value } );
                 dmesgQueueEntry_t& r = threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::back ();
@@ -175,13 +241,31 @@
                 return r;
             }
 
-            inline dmesgQueueEntry_t& operator << (const unsigned long& value) {
+            inline dmesgQueueEntry_t& operator << (const uint32_t& value) {
                 threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::Lock ();
                 threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::push_back ( { millis (), time (NULL), value } );
                 dmesgQueueEntry_t& r = threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::back ();
                 threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::Unlock ();
                 return r;
             }
+
+            inline dmesgQueueEntry_t& operator << (const int64_t& value) {
+                threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::Lock ();
+                threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::push_back ( { millis (), time (NULL), value } );
+                dmesgQueueEntry_t& r = threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::back ();
+                threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::Unlock ();
+                return r;
+            }
+
+            inline dmesgQueueEntry_t& operator << (const uint64_t& value) {
+                threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::Lock ();
+                threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::push_back ( { millis (), time (NULL), value } );
+                dmesgQueueEntry_t& r = threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::back ();
+                threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::Unlock ();
+                return r;
+            }
+
+            // floats
 
             inline dmesgQueueEntry_t& operator << (const float& value) {
                 threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::Lock ();
@@ -199,7 +283,17 @@
                 return r;
             }
 
-            inline dmesgQueueEntry_t& operator << (const time_t& value) {
+            inline dmesgQueueEntry_t& operator << (const long double& value) {
+                threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::Lock ();
+                threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::push_back ( { millis (), time (NULL), value } );
+                dmesgQueueEntry_t& r = threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::back ();
+                threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::Unlock ();
+                return r;
+            }
+
+            // time
+
+            inline dmesgQueueEntry_t& operator << (const struct tm& value) {
                 threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::Lock ();
                 threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::push_back ( { millis (), time (NULL), value } );
                 dmesgQueueEntry_t& r = threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::back ();

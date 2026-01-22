@@ -369,8 +369,54 @@ Cstring<300> threadSafeFS::FS::fileInformation (const char *fileOrDirectory, boo
     return s;
 }
 
+// reads entire configuration file in the buffer - returns success, it also removes \r characters, double spaces, comments, ...
+bool threadSafeFS::FS::readConfiguration (char *buffer, size_t bufferSize, const char *fileName) {
+    *buffer = 0;
+    int i = 0; // index in the buffer
+    bool beginningOfLine = true;  // beginning of line
+    bool inComment = false;       // if reading comment text
+    char lastCharacter = 0;       // the last character read from the file
 
-// fprintf implementation
+    threadSafeFS::File f = open (fileName, FILE_READ);
+    if (f) {
+        if (!f.isDirectory ()) {
+            while (f.available ()) { 
+                char c = (char) f.read (); 
+                switch (c) {
+                    case '\r':  break; // igonore \r
+                    case '\n':  inComment = false; // \n terminates comment
+                                if (beginningOfLine) break; // ignore 
+                                if (i > 0 && buffer [i - 1] == ' ') i--; // right trim (we can not reach the beginning of the line - see left trim)
+                                goto processNormalCharacter;
+                    case '=':
+                    case '\t':
+                    case ' ':   if (inComment) break; // ignore
+                                if (beginningOfLine) break; // left trim - ignore
+                                if (lastCharacter == ' ') break; // trim in the middle - ignore
+                                c = ' ';
+                                goto processNormalCharacter;
+                    case '#':   if (beginningOfLine) inComment = true; // mark comment and ignore
+                                goto processNormalCharacter;
+                    default:   
+processNormalCharacter:
+                                if (inComment) break; // ignore
+                                if (i > bufferSize - 2) { f.close (); return false; } // buffer too small
+                                buffer [i++] = lastCharacter = c; // copy space to the buffer                       
+                                beginningOfLine = (c == '\n');
+                                break;
+                }
+            }
+            buffer [i] = 0; 
+            f.close ();
+            return true;
+        }
+        f.close ();
+    }             
+    return false; // can't open the file or it is a directory
+}
+
+
+// fprintf implementation for compatibility with C
 
 size_t fprintf (threadSafeFS::File &f, const char *fmt, ...) {
     if (!f || !fmt)

@@ -101,7 +101,7 @@ int tcpConnection_t::recv (void *buf, size_t len) {
                 case   0:   // connection closed by peer
                             getLogQueue () << "[tcpConn] connection closed by peer" << endl;
                             return 0;
-                case 128:   // don't log the error, the socket has been closed
+                case 128:   // ENOTSOCK (or the client closed the connection), don't log
                             return -1;
                 default:
                             getLogQueue () << "[tcpConn] error: " << errno << " " << strerror (errno) << endl;
@@ -164,7 +164,7 @@ int tcpConnection_t::recvString (char *buf, size_t len, const char *endingString
                 case   0:   // connection closed by peer
                             getLogQueue () << "[tcpConn] connection closed by peer" << endl;
                             return 0;
-                case 128:   // don't log the error, the socket has been closed
+                case 128:   // ENOTSOCK (or the client closed the connection), don't log
                             return -1;
                 default:
                             getLogQueue () << "[tcpConn] error: " << errno << " " << strerror (errno) << endl;
@@ -210,7 +210,7 @@ int tcpConnection_t::peek (void *buf, size_t len) {
             case   0:   // connection closed by peer
                         getLogQueue () << "[tcpConn] connection closed by peer" << endl;
                         return -1;
-            case 128:   // don't log the error, the socket has been closed
+            case 128:   // ENOTSOCK (or the client closed the connection), don't log
                         return -1;
             default:
                         getLogQueue () << "[tcpConn] error: " << errno << " " << strerror (errno) << endl;
@@ -252,7 +252,7 @@ int tcpConnection_t::sendBlock (void *buf, size_t len) {
                 case   0:   // connection closed by peer
                             getLogQueue () << "[tcpConn] connection closed by peer" << endl;  
                             return 0;
-                case 128:   // don't log the error, the socket has been closed
+                case 128:   // ENOTSOCK (or the client closed the connection), don't log
                             return -1;
                 default:
                             getLogQueue () << "[tcpConn] error: " << errno << " " << strerror (errno) << endl;

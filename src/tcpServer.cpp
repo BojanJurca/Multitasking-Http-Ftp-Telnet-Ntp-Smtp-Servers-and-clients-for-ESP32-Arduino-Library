@@ -66,9 +66,7 @@ tcpServer_t::tcpServer_t (int serverPort,
     // create listening socket
       __listeningSocket__ = socket (AF_INET6, SOCK_STREAM, 0);
     if (__listeningSocket__ == -1) {
-      #ifdef __DMESG__
-          getLogQueue () << "[tcpServer] socket error: " << errno << " " << strerror (errno);
-      #endif
+      getLogQueue () << "[tcpServer] socket error: " << errno << " " << strerror (errno);
       xSemaphoreGive (getLwIpMutex ());
       return;
     }

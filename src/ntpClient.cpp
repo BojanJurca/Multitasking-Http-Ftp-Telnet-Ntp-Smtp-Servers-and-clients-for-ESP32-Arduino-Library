@@ -4,6 +4,7 @@
 
   This file is part of Multitasking HTTP, FTP, Telnet, NTP, SMTP servers and clients for ESP32 - Arduino library: https://github.com/BojanJurca/Multitasking-Http-Ftp-Telnet-Ntp-Smtp-Servers-and-clients-for-ESP32-Arduino-Library
 
+
   This library is based on Let's make a NTP Client in C: https://lettier.github.io/posts/2016-04-26-lets-make-a-ntp-client-in-c.html
   which I'm keeping here as close to the original as possible due to its comprehensive explanation.
 
@@ -12,13 +13,11 @@
 */
 
 
+#include <WiFi.h>
 #include "ntpClient.h"
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/time.h>
-#if __has_include(<dmesg.hpp>) 
-    #include <dmesg.hpp>
-#endif
 
 
 // missing function in LwIP
@@ -37,6 +36,8 @@ static const char *gai_strerror (int err) {
 }
 
 
+ntpClient_t::ntpClient_t () {}
+
 ntpClient_t::ntpClient_t (const char *ntpServer0,
                           const char *ntpServer1,
                           const char *ntpServer2) {
@@ -50,7 +51,7 @@ ntpClient_t::ntpClient_t (const char *ntpServer0,
 // synchronizes time with NTP server, returns error message or "" if OK
 const char *ntpClient_t::syncTime () {
     const char *s;
-    if (!* (s = syncTime (__ntpServer__ [0])))
+    if (!*(s = syncTime (__ntpServer__ [0])))
         return "";
 
     delay (25);
@@ -154,9 +155,7 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
         sockfd = socket (PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 
     if (sockfd < 0) {
-        #if __has_include (<dmesg.hpp>)
-            dmesgQueue << "[NTP] socket error: " << errno << " " << strerror (errno);
-        #endif
+        getLogQueue () << "[NTP] socket error: " << errno << " " << strerror (errno) << endl;
         xSemaphoreGive (getLwIpMutex ());
         return "socket error";
     }
@@ -166,9 +165,7 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
     setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, &tout, sizeof (tout));
 
     if (fcntl (sockfd, F_SETFL, O_NONBLOCK) == -1) {
-        #if __has_include (<dmesg.hpp>)
-            dmesgQueue << "[NTP] fcntl error: " << errno << " " << strerror (errno);
-        #endif
+        getLogQueue () << "[NTP] fcntl error: " << errno << " " << strerror (errno) << endl;
         close (sockfd);
         xSemaphoreGive (getLwIpMutex ());
         return "fcntl error";
@@ -180,9 +177,7 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
         serv_addr.sin6_family = AF_INET6;
         serv_addr.sin6_port = htons (123);  // convert the port number integer to network big-endian style and save it to the server address structure.
         if (inet_pton (AF_INET6, ipstr, &serv_addr.sin6_addr) <= 0) {
-            #if __has_include(<dmesg.hpp>)
-                dmesgQueue << "[NTP] invalid or not supported address " << ipstr;
-            #endif
+            getLogQueue () << "[NTP] invalid or not supported address " << ipstr << endl;
             close (sockfd);
             xSemaphoreGive (getLwIpMutex ());
             return "invalid or not supported address";
@@ -194,9 +189,7 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
 
         // Call up the server using its IP address and port number.
         if (connect (sockfd, (struct sockaddr *) &serv_addr, sizeof (serv_addr)) < 0) {
-            #if __has_include(<dmesg.hpp>)
-                dmesgQueue << "connect error: " << errno << " " << strerror (errno);
-            #endif
+            getLogQueue () << "connect error: " << errno << " " << strerror (errno) << endl;
             close (sockfd);
             xSemaphoreGive (getLwIpMutex ());
             return "connect error";
@@ -208,9 +201,7 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
         int n;
         n = sendto (sockfd, (char *)&packet, sizeof(ntp_packet), 0, (struct sockaddr *)&serv_addr, sizeof (serv_addr));
         if (n < 0) {
-            #if __has_include(<dmesg.hpp>)
-                dmesgQueue << "sendto error: " << errno << " " << strerror (errno);
-            #endif
+            getLogQueue () << "sendto error: " << errno << " " << strerror (errno) << endl;
             close (sockfd);
             xSemaphoreGive (getLwIpMutex ());
             return "sendto error";
@@ -242,9 +233,7 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
             if (n < 0) {
                 if (errno == 11)  // EWOULDBLOCK || EAGAIN
                     continue;
-                #if __has_include(<dmesg.hpp>)
-                    dmesgQueue << "recvfrom error: " << errno << " " << strerror(errno);
-                #endif
+                getLogQueue () << "recvfrom error: " << errno << " " << strerror(errno) << endl;
                 xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
                 close (sockfd);
                 xSemaphoreGive (getLwIpMutex ());
@@ -261,9 +250,7 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
         serv_addr.sin_family = AF_INET;
         serv_addr.sin_port = htons (123);  // convert the port number integer to network big-endian style and save it to the server address structure.
         if (inet_pton (AF_INET, ipstr, &serv_addr.sin_addr) <= 0) {
-            #if __has_include(<dmesg.hpp>)
-                dmesgQueue << "[NTP] invalid or not supported address " << ipstr;
-            #endif
+            getLogQueue () << "[NTP] invalid or not supported address " << ipstr << endl;
             close (sockfd);
             xSemaphoreGive (getLwIpMutex ());
             return "invalid or not supported address";
@@ -275,9 +262,7 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
 
         // Call up the server using its IP address and port number.
         if (connect (sockfd, (struct sockaddr *) &serv_addr, sizeof (serv_addr)) < 0) {
-            #if __has_include(<dmesg.hpp>)
-                dmesgQueue << "[NTP] connect error: " << errno << " " << strerror (errno);
-            #endif
+            getLogQueue () << "[NTP] connect error: " << errno << " " << strerror (errno) << endl;
             close (sockfd);
             xSemaphoreGive (getLwIpMutex ());
             return "connect error";
@@ -289,9 +274,7 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
         int n;
         n = sendto (sockfd, (char *) &packet, sizeof (ntp_packet), 0, (struct sockaddr *) &serv_addr, sizeof (serv_addr));
         if (n < 0) {
-            #if __has_include(<dmesg.hpp>)
-                dmesgQueue << "[NTP] sendto error: " << errno << " " << strerror (errno);
-            #endif
+            getLogQueue () << "[NTP] sendto error: " << errno << " " << strerror (errno) << endl;
             close (sockfd);
             xSemaphoreGive (getLwIpMutex ());
             return "sendto error";
@@ -323,9 +306,7 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
             if (n < 0) {
                 if (errno == 11)  // EWOULDBLOCK || EAGAIN
                     continue;
-                #if __has_include(<dmesg.hpp>)
-                    dmesgQueue << "recvfrom error: " << errno << " " << strerror(errno);
-                #endif
+                getLogQueue () << "recvfrom error: " << errno << " " << strerror (errno) << endl;
             xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
             close (sockfd);
             xSemaphoreGive (getLwIpMutex ());
@@ -355,12 +336,24 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
     packet.txTm_s = ntohl (packet.txTm_s);
     packet.txTm_f = ntohl (packet.txTm_f);
 
+    time_t oldTime = time (NULL);
     #define NTP_TIMESTAMP_DELTA 2208988800
     struct timeval txTm = { (time_t) (packet.txTm_s - NTP_TIMESTAMP_DELTA), 0 };
     settimeofday (&txTm, NULL);
 
-    #if __has_include (<dmesg.hpp>)
-        dmesgQueue << "[NTP] synchronized with " << ntpServerName << " (" << ipstr << ")";
-    #endif
+    __startUpTime__ += (time_t) (packet.txTm_s - NTP_TIMESTAMP_DELTA) - oldTime; // += newTime - oldTime
+    
+    getLogQueue () << "[NTP] synchronized with " << ntpServerName << " (" << ipstr << ")" << endl;
+    return "";
+}
+
+// just sets the time without involving NTP
+const char *ntpClient_t::setTime (const time_t newTime) {
+    time_t oldTime = time (NULL);
+    struct timeval txTm = { newTime, 0 };
+    settimeofday (&txTm, NULL);
+
+    __startUpTime__ += newTime - oldTime;
+
     return "";
 }
