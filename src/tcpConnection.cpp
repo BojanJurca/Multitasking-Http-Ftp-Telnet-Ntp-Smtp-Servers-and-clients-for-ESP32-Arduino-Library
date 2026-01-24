@@ -50,11 +50,13 @@
 
 
 #include <WiFi.h>
-#include "tcpConnection.h"
 #include <cstring>
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include "tcpConnection.h"
+#include <dmesg.hpp>
+#include <ostream.hpp>
 
 
 tcpConnection_t::tcpConnection_t () {}
@@ -67,7 +69,7 @@ tcpConnection_t::tcpConnection_t (int connectionSocket, char *clientIP, char *se
     // make connection socket non-blocking
     xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);    
         if (fcntl (__connectionSocket__, F_SETFL, O_NONBLOCK) < 0) {
-            getLogQueue () << "[tcpConn] error: " << errno << " " << strerror (errno) << endl;
+            cout << ( dmesgQueue << "[tcpConn] " << "error: " << errno << " " << strerror (errno) ) << endl;
             xSemaphoreGive (getLwIpMutex ());
             close ();
         }
@@ -91,7 +93,7 @@ int tcpConnection_t::recv (void *buf, size_t len) {
                 // case 119:   // EALREADY (all the sockets are non-blocking)
                 case  11:   // EAGAIN or EWOULDBLOCK
                             if (idleTimeout ()) {
-                                getLogQueue () << "[tcpConn] idle time-out" << endl;
+                                cout << ( dmesgQueue << "[tcpConn] idle timeout" ) << endl;
                                 return -1;
                             } else {
                                 // continue waiting
@@ -99,12 +101,12 @@ int tcpConnection_t::recv (void *buf, size_t len) {
                                 continue;
                             }
                 case   0:   // connection closed by peer
-                            getLogQueue () << "[tcpConn] connection closed by peer" << endl;
+                            cout << ( dmesgQueue << "[tcpConn] " << "connection closed by peer" ) << endl;
                             return 0;
                 case 128:   // ENOTSOCK (or the client closed the connection), don't log
                             return -1;
                 default:
-                            getLogQueue () << "[tcpConn] error: " << errno << " " << strerror (errno) << endl;
+                            cout << ( dmesgQueue << "[tcpConn] " << "error: " << errno << " " << strerror (errno) ) << endl;
                             return -1;
             }
     }
@@ -154,7 +156,7 @@ int tcpConnection_t::recvString (char *buf, size_t len, const char *endingString
                 // case 119:   // EALREADY (all the sockets are non-blocking)
                 case  11:   // EAGAIN or EWOULDBLOCK
                             if (idleTimeout ()) {
-                                getLogQueue () << "[tcpConn] idle time-out" << endl;
+                                cout << ( dmesgQueue << "[tcpConn] " << "timeout" ) << endl;
                                 return -1;
                             } else {
                                 // continue waiting
@@ -162,12 +164,12 @@ int tcpConnection_t::recvString (char *buf, size_t len, const char *endingString
                                 continue;
                             }
                 case   0:   // connection closed by peer
-                            getLogQueue () << "[tcpConn] connection closed by peer" << endl;
+                            cout << ( dmesgQueue << "[tcpConn] " << "connection closed by peer" ) << endl;
                             return 0;
                 case 128:   // ENOTSOCK (or the client closed the connection), don't log
                             return -1;
                 default:
-                            getLogQueue () << "[tcpConn] error: " << errno << " " << strerror (errno) << endl;
+                            cout << ( dmesgQueue << "[tcpConn] " << "error: " << errno << " " << strerror (errno) ) << endl;
                             return -1;
             }
 
@@ -202,18 +204,18 @@ int tcpConnection_t::peek (void *buf, size_t len) {
             // case 119:   // EALREADY (all the sockets are non-blocking)
             case  11:   // EAGAIN or EWOULDBLOCK
                         if (idleTimeout ()) {
-                            getLogQueue () << "[tcpConn] idle time-out" << endl;
+                            cout << ( dmesgQueue << "[tcpConn] " << "timeout" ) << endl;
                             return -1;
                         } else {
                             return 0;
                         }
             case   0:   // connection closed by peer
-                        getLogQueue () << "[tcpConn] connection closed by peer" << endl;
+                        cout << ( dmesgQueue << "[tcpConn] " << "connection closed by peer" ) << endl;
                         return -1;
             case 128:   // ENOTSOCK (or the client closed the connection), don't log
                         return -1;
             default:
-                        getLogQueue () << "[tcpConn] error: " << errno << " " << strerror (errno) << endl;
+                        cout << ( dmesgQueue << "[tcpConn] " << "error: " << errno << " " << strerror (errno) ) << endl;
                         return -1;
         }
 
@@ -242,7 +244,7 @@ int tcpConnection_t::sendBlock (void *buf, size_t len) {
                 // case 119:   // EALREADY (all the sockets are non-blocking)
                 case  11:   // EAGAIN or EWOULDBLOCK
                             if (idleTimeout ()) {
-                                getLogQueue () << "[tcpConn] idle time-out" << endl;
+                                cout << ( dmesgQueue << "[tcpConn] " << "timeout" ) << endl;
                                 return -1;
                             } else {
                                 // continue waiting
@@ -250,12 +252,12 @@ int tcpConnection_t::sendBlock (void *buf, size_t len) {
                                 continue;
                             }
                 case   0:   // connection closed by peer
-                            getLogQueue () << "[tcpConn] connection closed by peer" << endl;  
+                            cout << ( dmesgQueue << "[tcpConn] " << "connection closed by peer" ) << endl;  
                             return 0;
                 case 128:   // ENOTSOCK (or the client closed the connection), don't log
                             return -1;
                 default:
-                            getLogQueue () << "[tcpConn] error: " << errno << " " << strerror (errno) << endl;
+                            cout << ( dmesgQueue << "[tcpConn] " << "error: " << errno << " " << strerror (errno) ) << endl;
                             return -1;
             }
 

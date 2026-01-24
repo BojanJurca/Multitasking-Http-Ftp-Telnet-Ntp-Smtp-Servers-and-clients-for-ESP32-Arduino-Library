@@ -14,10 +14,12 @@
 
 
 #include <WiFi.h>
-#include "ntpClient.h"
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/time.h>
+#include "ntpClient.h"
+#include <dmesg.hpp>
+#include <ostream.hpp>
 
 
 // missing function in LwIP
@@ -155,7 +157,7 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
         sockfd = socket (PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 
     if (sockfd < 0) {
-        getLogQueue () << "[NTP] socket error: " << errno << " " << strerror (errno) << endl;
+        cout << ( dmesgQueue << "[NTP] socket error: " << errno << " " << strerror (errno) ) << endl;
         xSemaphoreGive (getLwIpMutex ());
         return "socket error";
     }
@@ -165,7 +167,7 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
     setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, &tout, sizeof (tout));
 
     if (fcntl (sockfd, F_SETFL, O_NONBLOCK) == -1) {
-        getLogQueue () << "[NTP] fcntl error: " << errno << " " << strerror (errno) << endl;
+        cout << ( dmesgQueue << "[NTP] fcntl error: " << errno << " " << strerror (errno) ) << endl;
         close (sockfd);
         xSemaphoreGive (getLwIpMutex ());
         return "fcntl error";
@@ -177,7 +179,7 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
         serv_addr.sin6_family = AF_INET6;
         serv_addr.sin6_port = htons (123);  // convert the port number integer to network big-endian style and save it to the server address structure.
         if (inet_pton (AF_INET6, ipstr, &serv_addr.sin6_addr) <= 0) {
-            getLogQueue () << "[NTP] invalid or not supported address " << ipstr << endl;
+            cout << ( dmesgQueue << "[NTP] invalid or not supported address " << ipstr ) << endl;
             close (sockfd);
             xSemaphoreGive (getLwIpMutex ());
             return "invalid or not supported address";
@@ -189,7 +191,7 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
 
         // Call up the server using its IP address and port number.
         if (connect (sockfd, (struct sockaddr *) &serv_addr, sizeof (serv_addr)) < 0) {
-            getLogQueue () << "connect error: " << errno << " " << strerror (errno) << endl;
+            cout << ( dmesgQueue << "[NTP] connect error: " << errno << " " << strerror (errno) ) << endl;
             close (sockfd);
             xSemaphoreGive (getLwIpMutex ());
             return "connect error";
@@ -201,7 +203,7 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
         int n;
         n = sendto (sockfd, (char *)&packet, sizeof(ntp_packet), 0, (struct sockaddr *)&serv_addr, sizeof (serv_addr));
         if (n < 0) {
-            getLogQueue () << "sendto error: " << errno << " " << strerror (errno) << endl;
+            cout << ( dmesgQueue << "[NTP] sendto error: " << errno << " " << strerror (errno) ) << endl;
             close (sockfd);
             xSemaphoreGive (getLwIpMutex ());
             return "sendto error";
@@ -233,7 +235,7 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
             if (n < 0) {
                 if (errno == 11)  // EWOULDBLOCK || EAGAIN
                     continue;
-                getLogQueue () << "recvfrom error: " << errno << " " << strerror(errno) << endl;
+                cout << ( dmesgQueue << "[NTP] recvfrom error: " << errno << " " << strerror (errno) ) << endl;
                 xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
                 close (sockfd);
                 xSemaphoreGive (getLwIpMutex ());
@@ -250,7 +252,7 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
         serv_addr.sin_family = AF_INET;
         serv_addr.sin_port = htons (123);  // convert the port number integer to network big-endian style and save it to the server address structure.
         if (inet_pton (AF_INET, ipstr, &serv_addr.sin_addr) <= 0) {
-            getLogQueue () << "[NTP] invalid or not supported address " << ipstr << endl;
+            cout << ( dmesgQueue << "[NTP] invalid or not supported address " << ipstr ) << endl;
             close (sockfd);
             xSemaphoreGive (getLwIpMutex ());
             return "invalid or not supported address";
@@ -262,7 +264,7 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
 
         // Call up the server using its IP address and port number.
         if (connect (sockfd, (struct sockaddr *) &serv_addr, sizeof (serv_addr)) < 0) {
-            getLogQueue () << "[NTP] connect error: " << errno << " " << strerror (errno) << endl;
+            cout << ( dmesgQueue << "[NTP] connect error: " << errno << " " << strerror (errno) ) << endl;
             close (sockfd);
             xSemaphoreGive (getLwIpMutex ());
             return "connect error";
@@ -274,7 +276,7 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
         int n;
         n = sendto (sockfd, (char *) &packet, sizeof (ntp_packet), 0, (struct sockaddr *) &serv_addr, sizeof (serv_addr));
         if (n < 0) {
-            getLogQueue () << "[NTP] sendto error: " << errno << " " << strerror (errno) << endl;
+            cout << ( dmesgQueue << "[NTP] sendto error: " << errno << " " << strerror (errno) ) << endl;
             close (sockfd);
             xSemaphoreGive (getLwIpMutex ());
             return "sendto error";
@@ -306,7 +308,7 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
             if (n < 0) {
                 if (errno == 11)  // EWOULDBLOCK || EAGAIN
                     continue;
-                getLogQueue () << "recvfrom error: " << errno << " " << strerror (errno) << endl;
+                cout << ( dmesgQueue << "[NTP] recvfrom error: " << errno << " " << strerror (errno) ) << endl;
             xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
             close (sockfd);
             xSemaphoreGive (getLwIpMutex ());
@@ -343,7 +345,7 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
 
     __startUpTime__ += (time_t) (packet.txTm_s - NTP_TIMESTAMP_DELTA) - oldTime; // += newTime - oldTime
     
-    getLogQueue () << "[NTP] synchronized with " << ntpServerName << " (" << ipstr << ")" << endl;
+    cout << ( dmesgQueue << "[NTP] time synchronized with " << ntpServerName << " (" << ipstr << ")" ) << endl;
     return "";
 }
 

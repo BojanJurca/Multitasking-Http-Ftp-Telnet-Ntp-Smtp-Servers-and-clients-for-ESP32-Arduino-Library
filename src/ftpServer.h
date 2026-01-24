@@ -119,6 +119,7 @@
         #define HOSTNAME "Esp32Server"                          // use default HOSTNAME if not defined previously
     #endif
 
+
     class ftpServer_t : public tcpServer_t {
 
         public:
@@ -146,13 +147,6 @@
 
                 Cstring<255> __rnfrPath__;
                 char __rnfrIs__; // 'f' or 'd'
-
-                #ifdef __DMESG__
-                    inline auto& getLogQueue () __attribute__((always_inline)) { return dmesgQueue; } // use dmesg if #included
-                    #define endl ""
-                #else
-                    inline auto& getLogQueue () __attribute__((always_inline)) { return cout; } // use serial console if not
-                #endif        
 
             public:
 
@@ -204,13 +198,6 @@
 
             threadSafeFS::FS __fileSystem__;
             Cstring<255> (*__getUserHomeDirectory__) (const Cstring<64>& userName, const Cstring<64>& password) = NULL;
-
-            #ifdef __DMESG__
-                inline auto& getLogQueue () __attribute__((always_inline)) { return dmesgQueue; } // use dmesg if #included
-                #define endl ""
-            #else
-                inline auto& getLogQueue () __attribute__((always_inline)) { return cout; } // use serial console if not
-            #endif        
 
         public:
 

@@ -84,14 +84,6 @@
     private:
       const char *__errText__;
 
-      #ifdef __DMESG__
-          inline auto& getLogQueue () __attribute__((always_inline)) { return dmesgQueue; } // use dmesg if #included
-          #define endl ""
-      #else
-          inline auto& getLogQueue () __attribute__((always_inline)) { return cout; } // use serial console if not
-      #endif
-
-
   public:
       tcpClient_t (const char *serverName, int serverPort);
 

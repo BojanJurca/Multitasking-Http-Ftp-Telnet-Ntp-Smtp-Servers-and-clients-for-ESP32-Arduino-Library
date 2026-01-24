@@ -50,10 +50,11 @@
 
 
 #include <WiFi.h>
-#include "tcpClient.h"
-#include <WiFi.h>
 #include <errno.h>
 #include <string.h>
+#include "tcpClient.h"
+#include <dmesg.hpp>
+#include <ostream.hpp>
 
 
 // missing function in LwIP
@@ -77,7 +78,7 @@ tcpClient_t::tcpClient_t (const char *serverName, int serverPort) : tcpConnectio
 
     if (!WiFi.isConnected () || WiFi.localIP () == IPAddress (0, 0, 0, 0)) { // esp32 can crash without this check
       __errText__ = "not connected";
-     	getLogQueue () << "[tcpClient] " << "not connected" << endl;
+     	cout << ( dmesgQueue << "[tcpClient] " << "not connected" ) << endl;
       return;
     }
 
@@ -92,7 +93,7 @@ tcpClient_t::tcpClient_t (const char *serverName, int serverPort) : tcpConnectio
     xSemaphoreGive (getLwIpMutex ());
     if (status != 0) {
       __errText__ = gai_strerror (status);
-      getLogQueue () << "[tcpClient] " << __errText__ << endl;
+      cout << ( dmesgQueue << "[tcpClient] " << __errText__ ) << endl;
       return;
     }
 
@@ -121,7 +122,7 @@ tcpClient_t::tcpClient_t (const char *serverName, int serverPort) : tcpConnectio
       __connectionSocket__ = socket (isIPv6 ? AF_INET6 : AF_INET, SOCK_STREAM, 0);
       if (__connectionSocket__ < 0) {
         __errText__ = strerror (errno);
-        getLogQueue () << "[tcpClient] " << __errText__ << endl;
+        cout << ( dmesgQueue << "[tcpClient] " << __errText__ ) << endl;
         xSemaphoreGive (getLwIpMutex ());
         return;
       }
@@ -145,7 +146,7 @@ tcpClient_t::tcpClient_t (const char *serverName, int serverPort) : tcpConnectio
       // make connection socket non-blocking
       if (fcntl (__connectionSocket__, F_SETFL, O_NONBLOCK) < 0) {
         __errText__ = strerror (errno);
-        getLogQueue () << "[tcpClient] " << __errText__ << endl;
+        cout << ( dmesgQueue << "[tcpClient] " << __errText__ ) << endl;
         xSemaphoreGive (getLwIpMutex ());
         return;
       }
@@ -159,13 +160,13 @@ tcpClient_t::tcpClient_t (const char *serverName, int serverPort) : tcpConnectio
 
         if (inet_pton (AF_INET6, __serverIP__, &server_addr.sin6_addr) <= 0) {
           __errText__ = "invalid network address";
-          getLogQueue () << "[tcpClient] " << __errText__ << " " << __serverIP__ << endl;
+          cout << ( dmesgQueue << "[tcpClient] " << __errText__ << " " << __serverIP__ ) << endl;
         } else {
           server_addr.sin6_port = htons (serverPort);
           if (connect (__connectionSocket__, (struct sockaddr *) &server_addr, sizeof (server_addr)) < 0) {
             if (errno != EINPROGRESS) {
               __errText__ = strerror (errno);
-              getLogQueue () << "[tcpClient] " << __errText__ << endl;
+              cout << ( dmesgQueue << "[tcpClient] " << __errText__ ) << endl;
               ::close (__connectionSocket__);
               __connectionSocket__ = -1;
             }
@@ -180,13 +181,13 @@ tcpClient_t::tcpClient_t (const char *serverName, int serverPort) : tcpConnectio
 
         if (inet_pton (AF_INET, __serverIP__, &server_addr.sin_addr) <= 0) {
           __errText__ = "invalid network address";
-          getLogQueue () << "[tcpClient] " << __errText__ << " " << __serverIP__ << endl;
+          cout << ( dmesgQueue << "[tcpClient] " << __errText__ << " " << __serverIP__ ) << endl;
         } else {
           server_addr.sin_port = htons (serverPort);
           if (connect (__connectionSocket__, (struct sockaddr *) &server_addr, sizeof (server_addr)) < 0) {
             if (errno != EINPROGRESS) {
               __errText__ = strerror (errno);
-              getLogQueue () << "[tcpClient] " << __errText__ << endl;
+              cout << ( dmesgQueue << "[tcpClient] " << __errText__ ) << endl;
               ::close (__connectionSocket__);
               __connectionSocket__ = -1;
             }
@@ -207,7 +208,7 @@ tcpClient_t::tcpClient_t (const char *serverName, int serverPort) : tcpConnectio
       delay (25);
       if (millis () - startMillis > CONNECT_TIMEOUT * 1000) {
         __errText__ = "connect time-out";
-        getLogQueue () << "[tcpClient] " << __errText__ << endl;
+        cout << ( dmesgQueue << "[tcpClient] " << __errText__ ) << endl;
         xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);          
           ::close (__connectionSocket__);
           __connectionSocket__ = -1;
@@ -224,7 +225,7 @@ tcpClient_t::tcpClient_t (const char *serverName, int serverPort) : tcpConnectio
         switch (select (__connectionSocket__ + 1, NULL, &wfds, NULL, &tv)) {
           case -1:  // break;
                     __errText__ = strerror (errno);
-                    getLogQueue () << "[tcpClient] " << __errText__ << endl;
+                    cout << ( dmesgQueue << "[tcpClient] " << __errText__ ) << endl;
                     ::close (__connectionSocket__);
                     __connectionSocket__ = -1;
                     xSemaphoreGive (getLwIpMutex ());

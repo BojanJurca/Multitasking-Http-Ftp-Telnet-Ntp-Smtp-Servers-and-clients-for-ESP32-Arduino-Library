@@ -116,13 +116,6 @@
 
         virtual tcpConnection_t *__createConnectionInstance__ (int connectionSocket, char *clientIP, char *serverIP);
 
-        #ifdef __DMESG__
-            inline auto& getLogQueue () __attribute__((always_inline)) { return dmesgQueue; } // use dmesg if #included
-            #define endl ""
-        #else
-            inline auto& getLogQueue () __attribute__((always_inline)) { return cout; } // use serial console if not
-        #endif        
-
   };
 
 #endif

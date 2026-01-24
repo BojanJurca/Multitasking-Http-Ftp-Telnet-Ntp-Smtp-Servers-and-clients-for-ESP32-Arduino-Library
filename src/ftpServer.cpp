@@ -78,9 +78,11 @@
 
 
 #include <WiFi.h>
-#include "ftpServer.h"
 #include <errno.h>
 #include <string.h>
+#include "ftpServer.h"
+#include <dmesg.hpp>
+#include <ostream.hpp>
 
 
 // static member initialization
@@ -100,7 +102,7 @@ ftpServer_t::ftpControlConnection_t::ftpControlConnection_t (threadSafeFS::FS fi
 }
 
 ftpServer_t::ftpControlConnection_t::~ftpControlConnection_t () {
-    __closeDataConnection__ (); // only if still opened
+    __closeDataConnection__ ();
 }
 
 void ftpServer_t::ftpControlConnection_t::__runConnectionTask__ () {
@@ -116,7 +118,7 @@ void ftpServer_t::ftpControlConnection_t::__runConnectionTask__ () {
             case -1:
             case 0:                         return;
             case FTP_CMDLINE_BUFFER_SIZE:
-                                            getLogQueue () << "[ftpCtrlConn] buffer too small" << endl;
+                                            cout << ( dmesgQueue << "[ftpCtrlConn] " << "buffer too small" ) << endl;
                                             return;
             default:                        break;
         }
@@ -169,13 +171,13 @@ void ftpServer_t::ftpControlConnection_t::__runConnectionTask__ () {
         // check how much o stack did we use
         UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark (NULL);
         if (__lastHighWaterMark__ > highWaterMark) {
-            getLogQueue () << "[ftpCtrlConn] new FTP connection stack high water mark reached: " << highWaterMark << " not used bytes" << endl;
+            cout << ( dmesgQueue << "[ftpCtrlConn] " << "new FTP connection stack high water mark reached: " << highWaterMark << " not used bytes" ) << endl;
             __lastHighWaterMark__ = highWaterMark;
         }
     }
 
 endConnection:
-    getLogQueue () << "[ftpCtrlConn] " << __userName__ << " logged out" << endl;
+    cout << ( dmesgQueue << "[ftpCtrlConn] " << __userName__ << " logged out" ) << endl;
 }
 
 Cstring<300> ftpServer_t::ftpControlConnection_t::__internalCommandHandler__ (int argc, char *argv []) {
@@ -264,10 +266,10 @@ Cstring<300> ftpServer_t::ftpControlConnection_t::__PASS__ (char *password) {
         if (s [s.length () - 1] == '/') s [s.length () - 1] = 0;
         if (!s [0]) s = "/";
 
-        getLogQueue () << "[ftpCtrlConn] " << __userName__ << " logged in" << endl;
+        cout << ( dmesgQueue << "[ftpCtrlConn] " << __userName__ << " logged in" ) << endl;
         return Cstring<300> ("230 logged on, your home directory is \"") + s + "\"\r\n";
     } else {
-        getLogQueue () << "[ftpCtrlConn] login denyed for " << __userName__ << endl;
+        cout << ( dmesgQueue << "[ftpCtrlConn] login denyed for " << __userName__ ) << endl;
         delay (100);
         return "530 login denyed\r\n";
     }
@@ -401,7 +403,7 @@ const char *ftpServer_t::ftpControlConnection_t::__PASV__ () {
 
     int ip1, ip2, ip3, ip4, p1, p2; // get FTP server IP and next free port
     if (4 != sscanf (getServerIP (), "%i.%i.%i.%i", &ip1, &ip2, &ip3, &ip4)) {
-        getLogQueue () << "[ftpCtrlConn] can't parse server IP: " << getServerIP () << endl;
+        cout << ( dmesgQueue << "[ftpCtrlConn] can't parse server IP: " << getServerIP () ) << endl;
         return "425 can't open passive data connection\r\n";
     }
 
@@ -688,7 +690,7 @@ tcpConnection_t *ftpServer_t::__createConnectionInstance__ (int connectionSocket
                                                                                     serverIP);
 
     if (!connection) {
-        getLogQueue () << "[ftpServer] " << "can't create connection instance, out of memory" << endl;
+        cout << ( dmesgQueue << "[ftpServer] " << "can't create connection instance, out of memory" ) << endl;
         char s [128];
         sprintf (s, ftpServiceUnavailableReply, esp_get_free_heap_size (), heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT));
         send (connectionSocket, s, strlen (s), 0);
@@ -714,7 +716,7 @@ tcpConnection_t *ftpServer_t::__createConnectionInstance__ (int connectionSocket
                                                             delete ths;
                                                             vTaskDelete (NULL);
                                                         }, "ftpCtrlConn", FTP_CONTROL_CONNECTION_STACK_SIZE, connection, tskNORMAL_PRIORITY, NULL)) {
-        getLogQueue () << "[ftpServer] " << "can't create connection task, out of memory" << endl;
+        cout << ( dmesgQueue << "[ftpServer] " << "can't create connection task, out of memory" ) << endl;
         char s [128];
         sprintf (s, ftpServiceUnavailableReply, esp_get_free_heap_size (), heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT));
         connection->sendString (s);

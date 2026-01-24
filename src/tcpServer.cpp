@@ -51,6 +51,8 @@
 
 #include <WiFi.h>
 #include "tcpServer.h"
+#include <dmesg.hpp>
+#include <ostream.hpp>
 
 
 int __runningTcpConnections__ = 0;
@@ -66,7 +68,7 @@ tcpServer_t::tcpServer_t (int serverPort,
     // create listening socket
       __listeningSocket__ = socket (AF_INET6, SOCK_STREAM, 0);
     if (__listeningSocket__ == -1) {
-      getLogQueue () << "[tcpServer] socket error: " << errno << " " << strerror (errno);
+      cout << ( dmesgQueue << "[tcpServer] " << "socket error: " << errno << " " << strerror (errno) ) << endl;
       xSemaphoreGive (getLwIpMutex ());
       return;
     }
@@ -74,7 +76,7 @@ tcpServer_t::tcpServer_t (int serverPort,
     // allow both IPv4 and IPv6 connections
     int opt = 0;
     if (setsockopt (__listeningSocket__, IPPROTO_IPV6, IPV6_V6ONLY, &opt, sizeof (opt)) < 0) {
-      getLogQueue () << "[tcpServer] setsockopt error: " << errno << " " << strerror (errno) << endl;
+      cout << ( dmesgQueue << "[tcpServer] " << "setsockopt error: " << errno << " " << strerror (errno) ) << endl;
       close (__listeningSocket__);
       __listeningSocket__ = -1;
       xSemaphoreGive (getLwIpMutex ());      
@@ -84,7 +86,7 @@ tcpServer_t::tcpServer_t (int serverPort,
     // make address reusable
     int flag = 1;
     if (setsockopt (__listeningSocket__, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof (flag)) == -1) {
-      getLogQueue () << "[tcpServer] setsockopt error: " << errno << " " << strerror (errno) << endl;
+      cout << ( dmesgQueue << "[tcpServer] " << "setsockopt error: " << errno << " " << strerror (errno) ) << endl;
       close (__listeningSocket__);
       __listeningSocket__ = -1;
       xSemaphoreGive (getLwIpMutex ());
@@ -97,7 +99,7 @@ tcpServer_t::tcpServer_t (int serverPort,
     serverAddress.sin6_port = htons (__serverPort__);
 
     if (bind (__listeningSocket__, (struct sockaddr *) &serverAddress, sizeof (serverAddress)) == -1) {
-      getLogQueue () << "[tcpServer] bind error: " << errno << " " << strerror (errno) << endl;
+      cout << ( dmesgQueue << "[tcpServer] " << "bind error: " << errno << " " << strerror (errno) ) << endl;
       close (__listeningSocket__);
       __listeningSocket__ = -1;
       xSemaphoreGive (getLwIpMutex ());
@@ -106,7 +108,7 @@ tcpServer_t::tcpServer_t (int serverPort,
 
     // make socket a listening socket
     if (listen (__listeningSocket__, 4) == -1) {
-      getLogQueue () << "[tcpServer] listen error: " << errno << " " << strerror (errno) << endl;
+      cout << ( dmesgQueue << "[tcpServer] " << "listen error: " << errno << " " << strerror (errno) ) << endl;
       __listeningSocket__ = -1;
       xSemaphoreGive (getLwIpMutex ());
       return;
@@ -114,7 +116,7 @@ tcpServer_t::tcpServer_t (int serverPort,
 
     // make listening socket non-blocking
     if (fcntl (__listeningSocket__, F_SETFL, O_NONBLOCK) < 0) {
-      getLogQueue () << "[tcpServer] fcntl error: " << errno << " " << strerror (errno) << endl;
+      cout << ( dmesgQueue << "[tcpServer] " << "fcntl error: " << errno << " " << strerror (errno) ) << endl;
       __listeningSocket__ = -1;
       xSemaphoreGive (getLwIpMutex ());        
       return;
@@ -131,7 +133,7 @@ tcpServer_t::tcpServer_t (int serverPort,
     #define tskNORMAL_PRIORITY (tskIDLE_PRIORITY + 1)
     BaseType_t taskCreated = xTaskCreate ([] (void *thisInstance) {
       tcpServer_t *ths = (tcpServer_t *) thisInstance;
-      ths->getLogQueue () << "[tcpServer] listener on port " << ths->__serverPort__ << " started on core " << xPortGetCoreID () << endl;
+      cout << ( dmesgQueue << "[tcpServer] " << "listener on port " << ths->__serverPort__ << " started on core " << xPortGetCoreID () ) << endl;
 
       while (ths->__listeningSocket__ > -1) {
         delay (25);
@@ -140,12 +142,12 @@ tcpServer_t::tcpServer_t (int serverPort,
         static UBaseType_t lastHighWaterMark = TCP_LISTENER_STACK_SIZE;
         UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark (NULL);
         if (lastHighWaterMark > highWaterMark) {
-          ths->getLogQueue () << "[tcpServer] new listener's stack high water mark: " << highWaterMark << " bytes not used" << endl;
+          cout << ( dmesgQueue << "[tcpServer] " << "new listener's stack high water mark: " << highWaterMark << " bytes not used" ) << endl;
           lastHighWaterMark = highWaterMark;
         }
       }
 
-      ths->getLogQueue () << "[tcpServer] on port " << ths->__serverPort__ << " stopped" << endl;
+      cout << ( dmesgQueue << "[tcpServer] " << "on port " << ths->__serverPort__ << " stopped" ) << endl;
 
       xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
         if (ths->__listeningSocket__ != -1) {
@@ -160,7 +162,7 @@ tcpServer_t::tcpServer_t (int serverPort,
 
     if (pdPASS != taskCreated) {
       __state__ = NOT_RUNNING;
-      getLogQueue () << "[tcpServer] xTaskCreate error" << endl;
+      cout << ( dmesgQueue << "[tcpServer] " << "xTaskCreate error" ) << endl;
       xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
         if (__listeningSocket__ != -1) {
           close (__listeningSocket__);
@@ -208,7 +210,7 @@ tcpConnection_t *tcpServer_t::accept () {
         if (errno == EAGAIN || errno == ENAVAIL) {
           ; // this is not an error it's just that no connection arrived
         } else {
-          getLogQueue () << "[tcpServer] accept error: " << errno << " " << strerror (errno) << endl;
+          cout << ( dmesgQueue << "[tcpServer] " << "accept error: " << errno << " " << strerror (errno) ) << endl;
         }      
         xSemaphoreGive (getLwIpMutex ());
         return NULL;
@@ -251,7 +253,7 @@ tcpConnection_t *tcpServer_t::accept () {
 
   // check firewall
   if (__firewallCallback__ && !__firewallCallback__ (clientIP, serverIP)) {
-    getLogQueue () << "[tcpServer] firewall rejected connection from " << clientIP << " to " << serverIP << endl;
+    cout << ( dmesgQueue << "[tcpServer] " << "firewall rejected connection from " << clientIP << " to " << serverIP ) << endl;
     close (connectionSocket);
     return NULL;
   }
