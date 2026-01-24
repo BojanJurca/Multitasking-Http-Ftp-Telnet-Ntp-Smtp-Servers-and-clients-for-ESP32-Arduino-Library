@@ -15,7 +15,7 @@ bool firewallCallback (char *clientIP, char *serverIP) {
   // Must be reentrant !!
 
   // accept only connections from local network, for example 10.18.1.*
-  if (strstr ("10.18.1.", clientIP) == clientIP)
+  if (strstr (clientIP, "10.18.1.") == clientIP)
     return true;
   else 
     return false; 
