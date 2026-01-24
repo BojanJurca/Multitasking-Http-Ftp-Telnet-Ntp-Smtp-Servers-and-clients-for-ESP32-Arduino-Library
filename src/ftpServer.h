@@ -130,7 +130,7 @@
 
             private:
 
-                threadSafeFS::FS __fileSystem__;
+                threadSafeFS::FS& __fileSystem__;
                 Cstring<255> (*__getUserHomeDirectory__) (const Cstring<64>& userName, const Cstring<64>& password) = NULL;
 
                 // FTP session related variables
@@ -150,7 +150,7 @@
 
             public:
 
-                ftpControlConnection_t (threadSafeFS::FS fileSystem,
+                ftpControlConnection_t (threadSafeFS::FS& fileSystem,
                                         Cstring<255> (*getUserHomeDirectory) (const Cstring<64>& userName, const Cstring<64>& password),
                                         int connectionSocket,
                                         char *clientIP,
@@ -196,12 +196,12 @@
 
         private:
 
-            threadSafeFS::FS __fileSystem__;
+            threadSafeFS::FS& __fileSystem__;
             Cstring<255> (*__getUserHomeDirectory__) (const Cstring<64>& userName, const Cstring<64>& password) = NULL;
 
         public:
 
-            ftpServer_t (threadSafeFS::FS fileSystem,
+            ftpServer_t (threadSafeFS::FS& fileSystem,
                          Cstring<255> (*getUserHomeDirectory) (const Cstring<64>& userName, const Cstring<64>& password) = NULL,
                          int serverPort = 21,
                          bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,

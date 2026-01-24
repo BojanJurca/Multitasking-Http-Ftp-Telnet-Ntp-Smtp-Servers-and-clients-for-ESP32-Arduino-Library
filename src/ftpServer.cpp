@@ -91,7 +91,7 @@ UBaseType_t ftpServer_t::ftpControlConnection_t::__lastHighWaterMark__ = FTP_CON
 
 // ----- ftpControlConnection_t implementation -----
 
-ftpServer_t::ftpControlConnection_t::ftpControlConnection_t (threadSafeFS::FS fileSystem,
+ftpServer_t::ftpControlConnection_t::ftpControlConnection_t (threadSafeFS::FS& fileSystem,
                                                              Cstring<255> (*getUserHomeDirectory) (const Cstring<64>& userName,
                                                              const Cstring<64>& password),
                                                              int connectionSocket,
@@ -671,7 +671,7 @@ const char *ftpServer_t::ftpControlConnection_t::__STOR__ (char *fileName) {
 
 // ----- ftpServer_t implementation -----
 
-ftpServer_t::ftpServer_t (threadSafeFS::FS fileSystem,
+ftpServer_t::ftpServer_t (threadSafeFS::FS& fileSystem,
                           Cstring<255> (*getUserHomeDirectory) (const Cstring<64>& userName,const Cstring<64>& password),
                           int serverPort,
                           bool (*firewallCallback) (char *clientIP, char *serverIP),
