@@ -31,6 +31,8 @@
 #define TELNET_CP_COMMAND 0         // 0=exclude, 1=include, cp included by default
 #define TELNET_RM_COMMAND 0         // 0=exclude, 1=include, rm included by default
 
+#define SWAP_DEL_AND_BACKSPACE 0    // seto to 1 to swap the meaning of these keys - this would be suitable for Putty and Linux Telnet clients
+
 #include <telnetServer.h>
 
 telnetServer_t *telnetServer = NULL;
