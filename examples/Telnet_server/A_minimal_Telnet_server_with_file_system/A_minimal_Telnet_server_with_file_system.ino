@@ -57,7 +57,7 @@ void setup () {
 
   // 5️⃣ Create Telnet server instance that would use thread-safe wrapper arround LittleFS (or FFat or SD)
   telnetServer = new (std::nothrow) telnetServer_t (TSFS);  // optional arguments:
-                                                            // const Cstring<64>& userName, const Cstring<64>& password) = NULL
+                                                            // Cstring<255> (*__getUserHomeDirectory__) (const Cstring<64>& userName, const Cstring<64>& password) = NULL
                                                             // String (*telnetCommandHandlerCallback) (int argc, char *argv [], telnetConnection_t *tcn) = NULL
                                                             // int serverPort = 23
                                                             // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL
