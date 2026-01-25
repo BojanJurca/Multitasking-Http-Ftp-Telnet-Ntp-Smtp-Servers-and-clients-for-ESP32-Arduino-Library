@@ -35,10 +35,10 @@
 
 
 // 1️⃣ Provide help text for user-defined commands
-#define __USER_DEFINED_TELNET_HELP_TEXT__   "\r\n  LED commands:" \
-                                            "\r\n      turn led on" \
-                                            "\r\n      turn led off" \
-                                            "\r\n      led state"
+#define USER_DEFINED_TELNET_HELP_TEXT   "\r\n  LED commands:" \
+                                        "\r\n      turn led on" \
+                                        "\r\n      turn led off" \
+                                        "\r\n      led state"
 
 #include <telnetServer.h>
 
