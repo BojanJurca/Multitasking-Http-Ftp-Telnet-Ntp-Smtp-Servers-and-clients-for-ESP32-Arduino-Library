@@ -44,7 +44,7 @@ void setup () {
   // 1️⃣ Create Telnet server instance without listener's task (runListenerInItsOwnTask = false)
   // Telnet server's listener would have to host in the loop task in this case, 
   telnetServer = new (std::nothrow) telnetServer_t (NULL, NULL, 23, NULL, false); // optional arguments:
-                                                                                  // const Cstring<64>& userName, const Cstring<64>& password) = NULL
+                                                                                  // Cstring<255> (*__getUserHomeDirectory__) (const Cstring<64>& userName, const Cstring<64>& password) = NULL
                                                                                   // String (*telnetCommandHandlerCallback) (int argc, char *argv [], telnetConnection_t *tcn) = NULL
                                                                                   // int serverPort = 23
                                                                                   // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL
