@@ -275,7 +275,7 @@
                 #ifdef __THREAD_SAFE_FS__
                         #define TELNET_CONNECTION_STACK_SIZE (8 * 1024 + 512)
                 #else
-                        #define TELNET_CONNECTION_STACK_SIZE (6 * 1024)
+                        #define TELNET_CONNECTION_STACK_SIZE (7 * 1024)
                 #endif
         #endif
 
@@ -291,7 +291,9 @@
                 #define TELNET_SESSION_MAX_ARGC 24
         #endif
 
-        // #define SWITHC_DEL_AND_BACKSPACE              // uncomment this line to swithc the meaning of these keys - this would be suitable for Putty and Linux Telnet clients
+        #ifndef SWAP_DEL_AND_BACKSPACE
+                #define SWAP_DEL_AND_BACKSPACE 0        // seto to 1 to swap the meaning of these keys - this would be suitable for Putty and Linux Telnet clients
+        #endif
 
         #ifndef HOSTNAME
                 #define HOSTNAME "Esp32Server"
@@ -607,7 +609,7 @@
                                 case 3:       break;            // Ctrl-C
                                 case 4:                         // Ctrl-D
                                 case 26:      c = 4; break;     // Ctrl-Z
-                                #ifdef SWITHC_DEL_AND_BACKSPACE
+                                #if SWAP_DEL_AND_BACKSPACE == 1
                                         // windows Telnet terminal: BkSpace key = 8, Del key = 127, Putty, Linux: Del key = 127, BkSpace key = ESC sequence: 27, 91, 51, 126
                                         case 8:   c = 127; break;   // BkSpace
                                         case 127: c = 8; break;     // Del
@@ -1268,8 +1270,8 @@
 
         // help command is the only command that gets always included
         const char *telnetServer_t::telnetConnection_t::__help__ () {
-                #ifndef __USER_DEFINED_TELNET_HELP_TEXT__
-                        #define __USER_DEFINED_TELNET_HELP_TEXT__ ""
+                #ifndef USER_DEFINED_TELNET_HELP_TEXT
+                        #define USER_DEFINED_TELNET_HELP_TEXT ""
                 #endif
                 const char *telnetHelpText =    "Suported commands:"
                                                 "\r\n      help"
@@ -1372,7 +1374,7 @@
                                                 #if TELNET_RM_COMMAND == 1
                                                         "\r\n      rm <fileName>"
                                                 #endif
-                                                __USER_DEFINED_TELNET_HELP_TEXT__;
+                                                USER_DEFINED_TELNET_HELP_TEXT;
 
                 sendString (telnetHelpText);
                 return "\r"; // different than "" to let the calling function know that the command has been processed
@@ -1392,7 +1394,7 @@
                         bool firstTime = true;
                         int currentLine = 0;
                         char s [128];
-                        do { // follow         
+                        do { // follow      
                                 if (firstTime || (getClientWindowHeight ()  && currentLine >= getClientWindowHeight ())) {
                                         sprintf (s, "%sFree heap       Max block Free PSRAM\r\n-------------------------------------------", firstTime ? "" : "\r\n");
                                         if (sendString (s) <= 0) 
@@ -2480,7 +2482,7 @@
                                                                         if (!(c = recvChar ())) return "\r";
                                                                         switch (c) {
                                                                         case '~': // ESC [ 3 ~ (126) - putty reports del key as ESC [ 3 ~ (126), since it also report backspace key as del key let' treat del key as backspace                                                                 
-                                                                                #ifdef SWITHC_DEL_AND_BACKSPACE
+                                                                                #if SWAP_DEL_AND_BACKSPACE == 1
                                                                                         goto delete_key;
                                                                                 #else
                                                                                         goto backspace_key;
