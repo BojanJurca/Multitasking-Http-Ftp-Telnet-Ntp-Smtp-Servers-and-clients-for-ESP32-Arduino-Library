@@ -67,7 +67,7 @@ void setup () {
 
   // 2️⃣ create Telent server instance that would use LittleFS and getUserHomeDirectory callback function to check user rights
   telnetServer = new (std::nothrow) telnetServer_t (TSFS, getUserHomeDirectoryCallback);  // optional arguments:
-                                                                                          // const Cstring<64>& userName, const Cstring<64>& password) = NULL
+                                                                                          // Cstring<255> (*getUserHomeDirectory) (const Cstring<64>& userName, const Cstring<64>& password) = NULL
                                                                                           // String (*telnetCommandHandlerCallback) (int argc, char *argv [], telnetConnection_t *tcn) = NULL
                                                                                           // int serverPort = 23
                                                                                           // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL
