@@ -89,8 +89,6 @@
     #include <Cstring.hpp>      // include LightweightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
     #include <FS.h>
     #include <threadSafeFS.h>
-    #include <dmesg.hpp>
-    #include <ostream.hpp>
 
 
     // TUNING PARAMETERS
