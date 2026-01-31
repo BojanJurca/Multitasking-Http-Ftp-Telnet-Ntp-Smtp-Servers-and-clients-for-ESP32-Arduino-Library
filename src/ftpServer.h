@@ -89,12 +89,8 @@
     #include <Cstring.hpp>      // include LightweightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
     #include <FS.h>
     #include <threadSafeFS.h>
-    #ifdef __DMESG__
-        #include <dmesg.hpp>      // use dmesg if #included
-        #define endl ""
-    #else
-        #include <ostream.hpp>    // use serial console if not
-    #endif
+    #include <dmesg.hpp>
+    #include <ostream.hpp>
 
 
     // TUNING PARAMETERS
