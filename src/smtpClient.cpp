@@ -5,7 +5,7 @@
     This file is part of Multitasking HTTP, FTP, Telnet, NTP, SMTP servers and clients for ESP32 - Arduino library: https://github.com/BojanJurca/Multitasking-Http-Ftp-Telnet-Ntp-Smtp-Servers-and-clients-for-ESP32-Arduino-Library
 
   
-    January 1, 2026, Bojan Jurca
+    February 6, 2026, Bojan Jurca
 
 */
 
@@ -255,6 +255,6 @@
               default:                break; // continue
           }
 
-          return buffer; // whatever the SMTP server sent
+          return Cstring<300> (buffer); // whatever the SMTP server sent
       }
   }

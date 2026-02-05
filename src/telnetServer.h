@@ -5,7 +5,7 @@
     This file is part of Multitasking HTTP, FTP, Telnet, NTP, SMTP servers and clients for ESP32 - Arduino library: https://github.com/BojanJurca/Multitasking-Http-Ftp-Telnet-Ntp-Smtp-Servers-and-clients-for-ESP32-Arduino-Library
 
 
-    January 1, 2026, Bojan Jurca
+    Feruary 6, 2026, Bojan Jurca
 
 
     Classes implemented/used in this module:
@@ -247,6 +247,14 @@
                         #error Telnet rm command is included but threadSafeFS.h is not! #include <threadSafeFS.h> prior to #including <telnetServer.h>
                 #endif
         #endif
+        #ifndef TELNET_LSOF_COMMAND
+                #define TELNET_LSOF_COMMAND 0      // 0=exclude, 1=include, mkdir included by default
+        #endif
+        #if TELNET_LSOF_COMMAND == 1
+                #ifndef __THREAD_SAFE_FS__
+                        #error Telnet lsof command is included but threadSafeFS.h is not! #include <threadSafeFS.h> prior to #including <telnetServer.h>
+                #endif
+        #endif
 
 
         #if (TELNET_UPTIME_COMMAND == 1) || (TELNET_DATE_COMMAND == 1) || (TELNET_NTPDATE_COMMAND == 1)
@@ -261,10 +269,10 @@
         #if TELNET_SENDMAIL_COMMAND == 1 
                 #include <smtpClient.h>
         #endif
-        #ifdef TELNET_TREE_COMMAND == 1
+        #if TELNET_TREE_COMMAND == 1
                 #include <queue.hpp>   	            // for tree command only, // include LightweightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
         #endif
-        #ifdef TELNET_VI_COMMAND == 1
+        #if TELNET_VI_COMMAND == 1
                 #include <vector.hpp>               // for vi command only, include LightweightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
         #endif
 
@@ -456,10 +464,10 @@
                                 Cstring<17> __mac_ntos__ (byte *mac, byte macLength = 6);
                                 #if TELNET_IFCONFIG_COMMAND == 1
                                         const char *__ifconfig__ ();
-                                #endif;
+                                #endif
                                 #if TELNET_IW_COMMAND == 1
                                         const char *__iw__ ();
-                                #endif;
+                                #endif
                                 #if TELNET_NETSTAT_COMMAND == 1
                                         const char *__netstat__ (unsigned long delaySeconds);
                                 #endif
@@ -500,6 +508,9 @@
                                 #if TELNET_RM_COMMAND == 1
                                         Cstring<300> __rm__ (char *fileName);
                                 #endif
+                                #if TELNET_LSOF_COMMAND == 1
+                                        Cstring<300> __lsof__ ();
+                                #endif                                
                         };
 
                 private:
@@ -725,7 +736,7 @@
                                         if (characters < len - 1) {
                                                 buf [characters] = c; buf [++ characters] = 0;
                                                 if (__echo__ && sendBlock (&c, sizeof (c)) <= 0) 
-                                                        return 0; // echo last character to the screen
+                                                        return 0; // echo the last character to the screen
                                         }                
                                         // continue with default (repeat adding a space):
                                 default:  // fill the buffer 
@@ -790,13 +801,13 @@
                 }
                 cout << (dmesgQueue << "[telnetConn] " << __userName__ << " logged in" );
 
-                sprintf (__cmdLine__, "\r\nWelcome %s, use \"help\" to display available commands.\r\n\n", __userName__);
+                sprintf (__cmdLine__, "\r\nWelcome %s, use \"help\" to display available commands.\r\n\n", (char *) __userName__);
                 if (sendString (__cmdLine__) <= 0)
                         return;
                 __cmdLine__ [0] = 0;
 
                 // notify callback handler procedure with special SESSION START command 
-                char *sessionState = "SESSION START";
+                char *sessionState = (char *) "SESSION START";
                 if (__telnetCommandHandlerCallback__) 
                         __telnetCommandHandlerCallback__ (1, &sessionState, this);
 
@@ -1166,6 +1177,13 @@
                         else if (telnetArgv0Is ("rm"))          { return  argc == 2 ? __rm__ (argv [1]) : "Wrong syntax, use rm <fileName>"; }
                 #endif
 
+                #if TELNET_LSOF_COMMAND == 1
+                        else if (telnetArgv0Is ("lsof"))        {
+                                                                        if (argc == 1)  return __lsof__ ();
+                                                                                        return "Wrong syntax, use lsof";    
+                                                                }
+                #endif
+
                 // command line not handeled internally
                 return "";
         }
@@ -1198,7 +1216,7 @@
                 }
 
         tcpConnection_t *telnetServer_t::__createConnectionInstance__ (int connectionSocket, char *clientIP, char *serverIP) {
-                #define telnetServiceUnavailableReply "Telnet service is currently unavailable.\r\nFree heap: %u bytes\r\nFree heap in one piece: %u bytes\r\n"
+                #define telnetServiceUnavailableReply "Telnet service is currently unavailable.\r\nFree heap: %lu bytes\r\nFree heap in one piece: %u bytes\r\n"
 
                 telnetConnection_t *connection;
                 
@@ -1341,7 +1359,7 @@
                                                         #endif
                                                 #endif
 
-                                                #if TELNET_LS_COMMAND == 1 or TELNET_TREE_COMMAND == 1 or TELNET_MKDIR_COMMAND == 1 or TELNET_RMDIR_COMMAND == 1 or TELNET_CD_COMMAND == 1 or TELNET_PWD_COMMAND == 1 or TELNET_CAT_COMMAND == 1 or TELNET_VI_COMMAND == 1 or  TELNET_CP_COMMAND == 1 or  TELNET_RM_COMMAND == 1
+                                                #if TELNET_LS_COMMAND == 1 or TELNET_TREE_COMMAND == 1 or TELNET_MKDIR_COMMAND == 1 or TELNET_RMDIR_COMMAND == 1 or TELNET_CD_COMMAND == 1 or TELNET_PWD_COMMAND == 1 or TELNET_CAT_COMMAND == 1 or TELNET_VI_COMMAND == 1 or  TELNET_CP_COMMAND == 1 or TELNET_RM_COMMAND == 1 or  TELNET_LSOF_COMMAND == 1
                                                         "\r\n  file commands:"
                                                 #endif
                                                 #if TELNET_LS_COMMAND == 1
@@ -1373,6 +1391,9 @@
                                                 #endif
                                                 #if TELNET_RM_COMMAND == 1
                                                         "\r\n      rm <fileName>"
+                                                #endif
+                                                #if TELNET_LSOF_COMMAND == 1
+                                                        "\r\n      lsof"
                                                 #endif
                                                 USER_DEFINED_TELNET_HELP_TEXT;
 
@@ -1693,7 +1714,7 @@
                                 sprintf (buf, "\r\nError %s", tping.errText ());
                         } else {
                                 sprintf (buf, "Ping statistics for %s:\r\n"
-                                              "    Packets: Sent = %i, Received = %i, Lost = %i", tping.target (), tping.sent (), tping.received (), tping.lost ());
+                                              "    Packets: Sent = %lu, Received = %lu, Lost = %lu", tping.target (), tping.sent (), tping.received (), tping.lost ());
                                 int l = strlen (buf);
                                 if (tping.sent ()) {
                                         sprintf (buf + l, " (%.2f%% loss)\r\nRound trip:\r\n"
@@ -2042,7 +2063,7 @@
                                 firstRecord = false;
 
                                 // 3. display information about files and remember subdirectories in dirList
-                                File d = __fileSystem__->open (fullPath); 
+                                threadSafeFS::File d = __fileSystem__->open (fullPath); 
                                 if (!d) return "Out of resources";
                                 for (threadSafeFS::File f = d.openNextFile (); f; f = d.openNextFile ()) {
                                         Cstring<255> directoryPath = fullPath; 
@@ -2251,7 +2272,7 @@
                                                         break; 
                                                 case '\t':  if (!lines.size ()) 
                                                                 if (lines.push_back ("")) {
-                                                                f.close ();                                         return "Out of memory"; // vi editor (the code below) needs at least 1 (empty) line where text can be entered
+                                                                        f.close ();                                         return "Out of memory"; // vi editor (the code below) needs at least 1 (empty) line where text can be entered
                                                                 }
                                                         if (!lines [lines.size () - 1].concat ("    ")) {
                                                                 f.close ();
@@ -2376,7 +2397,7 @@
                                                         redrawFooter = false;
                                                 }
                                 if (message != "")  {
-                                                        snprintf (s, s.max_size (), "\x1b[%i;2H%s", __clientWindowHeight__, message);
+                                                        snprintf (s, s.max_size (), "\x1b[%i;2H%s", __clientWindowHeight__, (char *) message);
                                                         if (sendString (s) <= 0) return "\r"; 
                                                         message = ""; redrawFooter = true; // we'll clear the message the next time screen redraws
                                                 }
@@ -2518,7 +2539,7 @@
                                         }
                                         break; 
                                 case 127: // Windows telnet.exe: delete, putty, Linux: backspace
-                                delete_key:
+                        // delete_key:
                                         if (textCursorX < lines [textCursorY].length ()) { // delete one character at cursor position
                                                 int l1 = lines [textCursorY].length ();
                                                 lines [textCursorY].remove (textCursorX, 1);
@@ -2626,13 +2647,36 @@
 
         #if TELNET_RM_COMMAND == 1
                 Cstring<300> telnetServer_t::telnetConnection_t::__rm__ (char *fileName) {
-                        if (!__fileSystem__)                                                                    return "Error, file system was not passed to the Telnet server constructor";
-                        if (!__fileSystem__->mounted ())                                                             return "File system not mounted. You may have to format flash disk first";
+                        if (!__fileSystem__)                                                                            return "Error, file system was not passed to the Telnet server constructor";
+                        if (!__fileSystem__->mounted ())                                                                return "File system not mounted. You may have to format flash disk first";
                         Cstring<255> fullPath = __fileSystem__->makeFullPath (fileName, __workingDirectory__);
-                        if (fullPath == "" || !__fileSystem__->isFile (fullPath))                                    return "Invalid file name";
-                        if (!__fileSystem__->userHasRightToAccessFile (fullPath, __homeDirectory__))                 return "Access denyed";
-                        if (__fileSystem__->remove (fullPath))                                                       return fullPath + " deleted";
-                        else                                                                                        return Cstring<300> ("Can't delete ") + fullPath;
+                        if (fullPath == "" || !__fileSystem__->isFile (fullPath))                                       return "Invalid file name";
+                        if (!__fileSystem__->userHasRightToAccessFile (fullPath, __homeDirectory__))                    return "Access denyed";
+                        if (__fileSystem__->remove (fullPath))                                                          return fullPath + " deleted";
+                        else                                                                                            return Cstring<300> ("Can't delete ") + fullPath;
+                }
+        #endif
+
+        #if TELNET_LSOF_COMMAND == 1
+                Cstring<300> telnetServer_t::telnetConnection_t::__lsof__ () {
+                        xSemaphoreTake (getFsMutex (), portMAX_DELAY);
+                        Cstring<300> s;
+                        if (__fileSystem__->readOpenedFiles.size ()) {
+                                s = "Files opened for reading\r\n   ";
+                                for (auto f: __fileSystem__->readOpenedFiles) {
+                                        if (sendString (s + f) <= 0) return "\r";
+                                        s = "\r\n   ";
+                                }
+                        }
+                        if (__fileSystem__->writeOpenedFiles.size ()) {
+                                s = "Files opened for writing\r\n   ";
+                                for (auto f: __fileSystem__->writeOpenedFiles) {
+                                        if (sendString (s + f) <= 0) return "\r";
+                                        s = "\r\n   ";
+                                }
+                        }
+                        xSemaphoreGive (getFsMutex ());
+                        return "\r";
                 }
         #endif
 

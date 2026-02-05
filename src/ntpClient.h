@@ -8,7 +8,7 @@
   This library is based on Let's make a NTP Client in C: https://lettier.github.io/posts/2016-04-26-lets-make-a-ntp-client-in-c.html
   which I'm keeping here as close to the original as possible due to its comprehensive explanation.
 
-  January 1, 2026, Bojan Jurca
+  February 6, 2026, Bojan Jurca
 
 */
 
@@ -22,12 +22,6 @@
   #include <lwip/netdb.h>
   #include <time.h>
   #include <LwIpMutex.h>
-  #ifdef __DMESG__
-      #include <dmesg.hpp>      // use dmesg if #included
-      #define endl ""
-  #else
-      #include <ostream.hpp>    // use serial console if not
-  #endif  
 
 
   // missing function in LwIP
@@ -40,13 +34,6 @@
       static inline char __ntpServer__ [3][255] = {};  // DNS host name may have max 253 characters
 
       static inline volatile time_t __startUpTime__ = 0; // singleton
-
-      #ifdef __DMESG__
-          inline auto& getLogQueue () __attribute__((always_inline)) { return dmesgQueue; } // use dmesg if #included
-          #define endl ""
-      #else
-          inline auto& getLogQueue () __attribute__((always_inline)) { return cout; } // use serial console if not
-      #endif    
 
     public:
       ntpClient_t ();

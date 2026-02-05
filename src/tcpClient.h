@@ -5,7 +5,7 @@
     This file is part of Multitasking HTTP, FTP, Telnet, NTP, SMTP servers and clients for ESP32 - Arduino library: https://github.com/BojanJurca/Multitasking-Http-Ftp-Telnet-Ntp-Smtp-Servers-and-clients-for-ESP32-Arduino-Library
 
 
-    January 1, 2026, Bojan Jurca
+    February 6, 2026, Bojan Jurca
 
     Classes implemented/used in this module:
 
@@ -56,12 +56,6 @@
 
   #include <WiFi.h>
   #include "tcpConnection.h"
-  #ifdef __DMESG__
-      #include <dmesg.hpp>      // use dmesg if #included
-      #define endl ""
-  #else
-      #include <ostream.hpp>    // use serial console if not
-  #endif
 
 
   // TUNING PARAMETERS
@@ -76,7 +70,7 @@
 
 
   // missing function in LwIP
-  static const char *gai_strerror (int err);
+  inline const char *gai_strerror (int err);
 
 
   class tcpClient_t : public tcpConnection_t {

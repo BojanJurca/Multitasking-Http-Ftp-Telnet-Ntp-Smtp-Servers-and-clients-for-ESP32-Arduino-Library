@@ -7,7 +7,7 @@
 
   A FS wrapper with mutex for multitasking.
 
-  January 1, 2026, Bojan Jurca
+  February 6, 2026, Bojan Jurca
 
 */
 
@@ -16,6 +16,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <algorithm.hpp>
 
 
 // singleton mutex
@@ -26,12 +27,26 @@ SemaphoreHandle_t getFsMutex () {
 
 
 // File implementation
+threadSafeFS::File::File (threadSafeFS::FS& fs, fs::File&& f) : fs::File (std::move (f)), __threadSafeFileSystem__ (&fs) {}
 
-threadSafeFS::File::File () : fs::File () {}
-threadSafeFS::File::File (fs::File&& f) : fs::File (std::move (f)) {}
+threadSafeFS::File::~File () {
+    if (!__threadSafeFileSystem__ || !fs::File::operator bool ()) return;
+
+    xSemaphoreTake (getFsMutex (), portMAX_DELAY);
+    auto it = ::find (__threadSafeFileSystem__->readOpenedFiles.begin (), __threadSafeFileSystem__->readOpenedFiles.end (), fs::File::name ());
+    if (it != __threadSafeFileSystem__->readOpenedFiles.end ()) {
+        __threadSafeFileSystem__->readOpenedFiles.erase (it); // file opened in read mode
+    } else {
+        it = ::find (__threadSafeFileSystem__->writeOpenedFiles.begin (), __threadSafeFileSystem__->writeOpenedFiles.end (), fs::File::name ());
+            __threadSafeFileSystem__->writeOpenedFiles.erase (it); // file opened in write mode
+    }
+    fs::File::close ();
+    xSemaphoreGive (getFsMutex ());
+}
+
 
 size_t threadSafeFS::File::write (const uint8_t* buf, size_t len) {
-    xSemaphoreTake (getFsMutex(), portMAX_DELAY);
+    xSemaphoreTake (getFsMutex (), portMAX_DELAY);
     size_t s = fs::File::write (buf, len);
     xSemaphoreGive (getFsMutex ());
     return s;
@@ -93,7 +108,14 @@ size_t threadSafeFS::File::size () {
 }
 
 void threadSafeFS::File::close () {
-    xSemaphoreTake (getFsMutex(), portMAX_DELAY);
+    xSemaphoreTake (getFsMutex (), portMAX_DELAY);
+    auto it = ::find (__threadSafeFileSystem__->readOpenedFiles.begin (), __threadSafeFileSystem__->readOpenedFiles.end (), fs::File::name ());
+    if (it != __threadSafeFileSystem__->readOpenedFiles.end ()) {
+        __threadSafeFileSystem__->readOpenedFiles.erase (it); // file opened in read mode
+    } else {
+        it = ::find (__threadSafeFileSystem__->writeOpenedFiles.begin (), __threadSafeFileSystem__->writeOpenedFiles.end (), fs::File::name ());
+            __threadSafeFileSystem__->writeOpenedFiles.erase (it); // file opened in write mode
+    }
     fs::File::close ();
     xSemaphoreGive (getFsMutex ());
 }
@@ -108,8 +130,25 @@ bool threadSafeFS::File::isDirectory () {
 threadSafeFS::File threadSafeFS::File::openNextFile (const char* mode) {
     xSemaphoreTake (getFsMutex (), portMAX_DELAY);
     fs::File f = fs::File::openNextFile (mode);
+    if (!f) {
+        xSemaphoreGive (getFsMutex ());
+        return threadSafeFS::File ();   // invalid
+    }  
+    if (strchr (mode, 'w') || strchr (mode, 'a')) { // open for writing
+        if (__threadSafeFileSystem__->writeOpenedFiles.push_front (f.name ())) { // couldn't update writeOpenedFiles list
+            f.close (); 
+            xSemaphoreGive (getFsMutex ());
+            return threadSafeFS::File ();   // invalid
+        }
+    } else if (strchr (mode, 'r')) { // open for reading
+        if (__threadSafeFileSystem__->readOpenedFiles.push_front (f.name ())) { // couldn't update readOpenedFiles list
+                f.close ();
+                xSemaphoreGive (getFsMutex ());
+                return threadSafeFS::File ();   // invalid
+        }
+    }
     xSemaphoreGive (getFsMutex ());
-    return File (std::move (f));
+    return threadSafeFS::File (*__threadSafeFileSystem__, std::move (f));
 }
 
 
@@ -190,16 +229,43 @@ size_t threadSafeFS::File::print (const long double& value) {
 
 threadSafeFS::FS::FS (fs::FS& fileSystem) : __fileSystem__ (fileSystem) {}
 
+// TO DO: implement read-write locking
 threadSafeFS::File threadSafeFS::FS::open (const char* path, const char* mode) {
     xSemaphoreTake (getFsMutex (), portMAX_DELAY);
-    File f = __fileSystem__.open (path, mode);
+    fs::File f = __fileSystem__.open (path, mode);
+    if (!f) {
+        xSemaphoreGive (getFsMutex ());
+        return threadSafeFS::File ();   // invalid
+    }  
+
+    if (strchr (mode, 'w') || strchr (mode, 'a')) { // open for writing
+        if (find (readOpenedFiles.begin (), readOpenedFiles.end (), f.name ()) != readOpenedFiles.end () // file already opened in read mode
+                ||
+            find (writeOpenedFiles.begin (), writeOpenedFiles.end (), f.name ()) != writeOpenedFiles.end () // file already opened in write mode
+                ||
+            writeOpenedFiles.push_front (f.name ())) { // couldn't update writeOpenedFiles list
+                f.close (); 
+                xSemaphoreGive (getFsMutex ());
+                return threadSafeFS::File ();   // invalid                
+            }
+    } else if (strchr (mode, 'r')) { // open for reading
+        if (find (writeOpenedFiles.begin (), writeOpenedFiles.end (), f.name ()) != writeOpenedFiles.end () // file already opened in write mode
+                || 
+            readOpenedFiles.push_front (f.name ())) { // couldn't update readOpenedFiles list
+                f.close ();
+                xSemaphoreGive (getFsMutex ());
+                return threadSafeFS::File ();   // invalid                
+            }
+    }
+
     xSemaphoreGive (getFsMutex ());
-    return f;
+    return threadSafeFS::File (*this, std::move (f));
 }
 
 threadSafeFS::File threadSafeFS::FS::open (const String& path, const char* mode) {
     return open (path.c_str (), mode);
 }
+
 
 bool threadSafeFS::FS::exists (const char* path) {
     xSemaphoreTake (getFsMutex (), portMAX_DELAY);

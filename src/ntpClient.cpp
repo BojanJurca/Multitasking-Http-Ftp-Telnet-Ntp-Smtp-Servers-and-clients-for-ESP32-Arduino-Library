@@ -8,7 +8,7 @@
   This library is based on Let's make a NTP Client in C: https://lettier.github.io/posts/2016-04-26-lets-make-a-ntp-client-in-c.html
   which I'm keeping here as close to the original as possible due to its comprehensive explanation.
 
-  January 1, 2026, Bojan Jurca
+  February 6, 2026, Bojan Jurca
 
 */
 
@@ -131,7 +131,7 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
         return gai_strerror (status);
 
     // IP addresses for serverName
-    bool isIPv6;
+    bool isIPv6 = false;
     for (p = res; p != NULL; p = p->ai_next) {
         void *addr;
         if (p->ai_family == AF_INET) {

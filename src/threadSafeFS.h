@@ -7,7 +7,7 @@
 
   A FS wrapper with mutex for multitasking.
 
-  January 1, 2026, Bojan Jurca
+  February 6, 2026, Bojan Jurca
 
 */
 
@@ -16,22 +16,30 @@
 #ifndef __THREAD_SAFE_FS__
   #define __THREAD_SAFE_FS__
 
-
   #include <FS.h>
   #include <Cstring.hpp>
+  #include <list.hpp>
 
-
-  // singleton mutex definition 
-  SemaphoreHandle_t getFsMutex ();  
-
+  // global mutex for thread-safe FS
+  SemaphoreHandle_t getFsMutex ();
 
   namespace threadSafeFS {
 
-      class File : public fs::File {
-      public:
-          File ();
-          File (fs::File&& f);
+      class FS;   // forward declaration
 
+      class File : public fs::File {
+      private:
+          FS* __threadSafeFileSystem__ = nullptr;   // pointer, allows default constructor
+
+      public:
+          File () = default;                        // invalid file, allowed
+          File (FS& fs, fs::File&& f);              // valid file created by FS::open ()
+
+          ~File ();
+
+          operator bool () const { return __threadSafeFileSystem__ != NULL && fs::File::operator bool (); } 
+
+          // basic overrides
           size_t write (const uint8_t* buf, size_t len);
           size_t write (uint8_t b);
           size_t read (uint8_t* buf, size_t len);
@@ -45,7 +53,7 @@
           bool isDirectory ();
           File openNextFile (const char* mode = FILE_READ);
 
-          // additional useful file functions
+          // additional helpers
           size_t write (const char* buf);
           size_t write (String& s);
 
@@ -65,50 +73,58 @@
           size_t println (T value) {
               return print (value) + print ("\r\n");
           }
+
       };
 
+
       class FS {
-        private:
-            fs::FS& __fileSystem__;
+          friend class File;
 
-        public:
-            FS (fs::FS& fileSystem);
+      private:
+          fs::FS& __fileSystem__;
 
-            File open (const char* path, const char* mode = FILE_READ);
-            File open (const String& path, const char* mode = FILE_READ);
+      public:
+          // lists of opened files
+          list<const char*> readOpenedFiles;
+          list<const char*> writeOpenedFiles;
 
-            bool exists (const char* path);
-            bool exists (const String& path);
+          FS (fs::FS& fileSystem);
 
-            bool remove (const char* path);
-            bool remove (const String& path);
+          File open (const char* path, const char* mode = FILE_READ);
+          File open (const String& path, const char* mode = FILE_READ);
 
-            bool rename (const char* from, const char* to);
-            bool rename (const String& from, const String& to);
+          bool exists (const char* path);
+          bool exists (const String& path);
 
-            bool mkdir (const char* path);
-            bool mkdir (const String& path);
+          bool remove (const char* path);
+          bool remove (const String& path);
 
-            bool rmdir (const char* path);
-            bool rmdir (const String& path);
+          bool rename (const char* from, const char* to);
+          bool rename (const String& from, const String& to);
 
-            bool mounted ();
+          bool mkdir (const char* path);
+          bool mkdir (const String& path);
 
-            Cstring<255> makeFullPath (const char *relativePath, const char *workingDirectory);
+          bool rmdir (const char* path);
+          bool rmdir (const String& path);
 
-            bool isFile (Cstring<255>& fullPath);
-            bool isDirectory (Cstring<255>& fullPath);
+          bool mounted ();
 
-            bool userHasRightToAccessFile (const char *fullPath, const char *homeDirectory);
-            bool userHasRightToAccessDirectory (Cstring<255> fullPath, Cstring<255> homeDirectory);
+          Cstring<255> makeFullPath (const char* relativePath, const char* workingDirectory);
 
-            Cstring<300> fileInformation (const char *fileOrDirectory, bool showFullPath = false);
+          bool isFile (Cstring<255>& fullPath);
+          bool isDirectory (Cstring<255>& fullPath);
 
-            bool readConfiguration (char *buffer, size_t bufferSize, const char *fileName);
+          bool userHasRightToAccessFile (const char* fullPath, const char* homeDirectory);
+          bool userHasRightToAccessDirectory (Cstring<255> fullPath, Cstring<255> homeDirectory);
+
+          Cstring<300> fileInformation (const char* fileOrDirectory, bool showFullPath = false);
+
+          bool readConfiguration (char* buffer, size_t bufferSize, const char* fileName);
       };
 
       // fprintf
-      size_t fprintf (threadSafeFS::File &f, const char *fmt, ...);
+      size_t fprintf (threadSafeFS::File& f, const char* fmt, ...);
 
   }
 
