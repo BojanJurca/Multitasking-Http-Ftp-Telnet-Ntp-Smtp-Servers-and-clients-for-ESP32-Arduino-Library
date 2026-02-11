@@ -1,11 +1,11 @@
 /*
 
-    ftpServer.hpp
+    ftpServer.cpp
 
     This file is part of Multitasking HTTP, FTP, Telnet, NTP, SMTP servers and clients for ESP32 - Arduino library: https://github.com/BojanJurca/Multitasking-Http-Ftp-Telnet-Ntp-Smtp-Servers-and-clients-for-ESP32-Arduino-Library
 
 
-    Dec 25, 2025, Bojan Jurca
+    February 6, 2026, Bojan Jurca
 
 
     Classes implemented/used in this module:
@@ -80,9 +80,9 @@
 #include <WiFi.h>
 #include <errno.h>
 #include <string.h>
-#include "ftpServer.h"
 #include <dmesg.hpp>
 #include <ostream.hpp>
+#include "ftpServer.h"
 
 
 // static member initialization
@@ -118,7 +118,7 @@ void ftpServer_t::ftpControlConnection_t::__runConnectionTask__ () {
             case -1:
             case 0:                         return;
             case FTP_CMDLINE_BUFFER_SIZE:
-                                            cout << ( dmesgQueue << "[ftpCtrlConn] " << "buffer too small" ) << endl;
+                                            cout << ( dmesgQueue << "[ftpCtrlConn] " << "buffer too small" );
                                             return;
             default:                        break;
         }
@@ -171,13 +171,13 @@ void ftpServer_t::ftpControlConnection_t::__runConnectionTask__ () {
         // check how much o stack did we use
         UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark (NULL);
         if (__lastHighWaterMark__ > highWaterMark) {
-            cout << ( dmesgQueue << "[ftpCtrlConn] " << "new FTP connection stack high water mark reached: " << highWaterMark << " not used bytes" ) << endl;
+            cout << ( dmesgQueue << "[ftpCtrlConn] " << "new FTP connection stack high water mark reached: " << highWaterMark << " not used bytes" );
             __lastHighWaterMark__ = highWaterMark;
         }
     }
 
 endConnection:
-    cout << ( dmesgQueue << "[ftpCtrlConn] " << __userName__ << " logged out" ) << endl;
+    cout << ( dmesgQueue << "[ftpCtrlConn] " << __userName__ << " logged out" );
 }
 
 Cstring<300> ftpServer_t::ftpControlConnection_t::__internalCommandHandler__ (int argc, char *argv []) {
@@ -266,10 +266,10 @@ Cstring<300> ftpServer_t::ftpControlConnection_t::__PASS__ (char *password) {
         if (s [s.length () - 1] == '/') s [s.length () - 1] = 0;
         if (!s [0]) s = "/";
 
-        cout << ( dmesgQueue << "[ftpCtrlConn] " << __userName__ << " logged in" ) << endl;
+        cout << ( dmesgQueue << "[ftpCtrlConn] " << __userName__ << " logged in" );
         return Cstring<300> ("230 logged on, your home directory is \"") + s + "\"\r\n";
     } else {
-        cout << ( dmesgQueue << "[ftpCtrlConn] login denyed for " << __userName__ ) << endl;
+        cout << ( dmesgQueue << "[ftpCtrlConn] login denyed for " << __userName__ );
         delay (100);
         return "530 login denyed\r\n";
     }
@@ -315,12 +315,12 @@ const char *ftpServer_t::ftpControlConnection_t::__XRMD__ (char *fileOrDirName) 
     if (!__fileSystem__.userHasRightToAccessDirectory (fullPath, __homeDirectory__))    return "550 access denyed\r\n";
     if (__fileSystem__.isFile (fullPath)) {
         if (__fileSystem__.remove (fullPath))                                           return "250 file deleted\r\n";
-                                                                                        return "452 could not delete file\r\n";
+        else                                                                            return "452 could not delete file\r\n";
     } else {
         if (fullPath == __homeDirectory__)                                              return "550 you can't remove your home directory\r\n";
         if (fullPath == __workingDirectory__)                                           return "550 you can't remove your working directory\r\n";
         if (__fileSystem__.rmdir (fullPath))                                            return "250 directory removed\r\n";
-                                                                                        return "452 could not remove directory\r\n";
+        else                                                                            return "452 could not remove directory\r\n";
     }
 }
 
@@ -403,7 +403,7 @@ const char *ftpServer_t::ftpControlConnection_t::__PASV__ () {
 
     int ip1, ip2, ip3, ip4, p1, p2; // get FTP server IP and next free port
     if (4 != sscanf (getServerIP (), "%i.%i.%i.%i", &ip1, &ip2, &ip3, &ip4)) {
-        cout << ( dmesgQueue << "[ftpCtrlConn] can't parse server IP: " << getServerIP () ) << endl;
+        cout << ( dmesgQueue << "[ftpCtrlConn] can't parse server IP: " << getServerIP () );
         return "425 can't open passive data connection\r\n";
     }
 
@@ -496,6 +496,7 @@ const char *ftpServer_t::ftpControlConnection_t::__NLST__ (char *directoryName) 
                     retVal = "550 access denyed\r\n";
                 } else {
                     if (sendString ("150 starting data transfer\r\n") > 0) {
+                        /*
                         threadSafeFS::File d = __fileSystem__.open (fullPath);
                         if (d) {
                             for (threadSafeFS::File f = d.openNextFile (); f; f = d.openNextFile ()) {
@@ -509,7 +510,18 @@ const char *ftpServer_t::ftpControlConnection_t::__NLST__ (char *directoryName) 
                                 }                                            
                             }                                    
                             d.close ();
-                        }       
+                        }
+                        */
+                        for (auto f : __fileSystem__.open (fullPath)) {
+                            Cstring<255> fullFileName = fullPath;
+                            if (fullFileName [fullFileName.length () - 1] != '/')
+                                fullFileName += '/';
+                            fullFileName += f.name ();
+                            if (__dataConnection__->sendString (__fileSystem__.fileInformation (fullFileName) + "\r\n") <= 0) {
+                                retVal = "426 data transfer error\r\n";
+                                break;
+                            }
+                        }
                         if (!*retVal)
                             sendString ("226 data transfer complete\r\n");
                     }
@@ -524,13 +536,13 @@ const char *ftpServer_t::ftpControlConnection_t::__NLST__ (char *directoryName) 
 
 const char *ftpServer_t::ftpControlConnection_t::__RNFR__ (char *fileOrDirName) {
     __rnfrIs__ = ' ';
-    if (__homeDirectory__ == "")                                                        return "530 not logged in\r\n";
-    if (!__fileSystem__.mounted ())                                                     return "421 file system not mounted\r\n";
+    if (__homeDirectory__ == "")                                                            return "530 not logged in\r\n";
+    if (!__fileSystem__.mounted ())                                                         return "421 file system not mounted\r\n";
     Cstring<255> fullPath =
         __fileSystem__.makeFullPath (fileOrDirName, __workingDirectory__);
-    if (fullPath == "")                                                                 return "501 invalid file or directory name\r\n";
+    if (fullPath == "")                                                                     return "501 invalid file or directory name\r\n";
     if (__fileSystem__.isDirectory (fullPath)) {
-        if (!__fileSystem__.userHasRightToAccessDirectory (fullPath, __homeDirectory__)) return "550 access denyed\r\n";
+        if (!__fileSystem__.userHasRightToAccessDirectory (fullPath, __homeDirectory__))    return "550 access denyed\r\n";
         __rnfrIs__ = 'd';
     } else if (__fileSystem__.isFile (fullPath)) {
         if (!__fileSystem__.userHasRightToAccessFile (fullPath, __homeDirectory__))
@@ -681,7 +693,7 @@ ftpServer_t::ftpServer_t (threadSafeFS::FS& fileSystem,
 }
 
 tcpConnection_t *ftpServer_t::__createConnectionInstance__ (int connectionSocket, char *clientIP, char *serverIP) {
-    #define ftpServiceUnavailableReply "421 FTP service is currently unavailable. Free heap: %u bytes. Free heap in one piece: %u bytes.\r\n"
+    #define ftpServiceUnavailableReply "421 FTP service is currently unavailable. Free heap: %lu bytes. Free heap in one piece: %u bytes.\r\n"
 
     ftpControlConnection_t *connection = new (std::nothrow) ftpControlConnection_t (__fileSystem__,
                                                                                     __getUserHomeDirectory__,
@@ -690,7 +702,7 @@ tcpConnection_t *ftpServer_t::__createConnectionInstance__ (int connectionSocket
                                                                                     serverIP);
 
     if (!connection) {
-        cout << ( dmesgQueue << "[ftpServer] " << "can't create connection instance, out of memory" ) << endl;
+        cout << ( dmesgQueue << "[ftpServer] " << "can't create connection instance, out of memory" );
         char s [128];
         sprintf (s, ftpServiceUnavailableReply, esp_get_free_heap_size (), heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT));
         send (connectionSocket, s, strlen (s), 0);
@@ -716,7 +728,7 @@ tcpConnection_t *ftpServer_t::__createConnectionInstance__ (int connectionSocket
                                                             delete ths;
                                                             vTaskDelete (NULL);
                                                         }, "ftpCtrlConn", FTP_CONTROL_CONNECTION_STACK_SIZE, connection, tskNORMAL_PRIORITY, NULL)) {
-        cout << ( dmesgQueue << "[ftpServer] " << "can't create connection task, out of memory" ) << endl;
+        cout << ( dmesgQueue << "[ftpServer] " << "can't create connection task, out of memory" );
         char s [128];
         sprintf (s, ftpServiceUnavailableReply, esp_get_free_heap_size (), heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT));
         connection->sendString (s);

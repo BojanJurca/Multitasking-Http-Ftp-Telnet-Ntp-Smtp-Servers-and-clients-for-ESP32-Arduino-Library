@@ -5,7 +5,7 @@
     This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
   
 
-    January 1, 2026, Bojan Jurca
+    February 6, 2026, Bojan Jurca
 
 
     Classes used in this module:
@@ -106,7 +106,6 @@
         // 2. read HTTP reply
         String httpReply ("");
         char buffer [HTTP_REPLY_BUFFER_SIZE];
-        int receivedTotal = 0;
         int receivedThisTime;
 
         while (true) { // read blocks of incoming data

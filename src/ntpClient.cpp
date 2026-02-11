@@ -22,22 +22,6 @@
 #include <ostream.hpp>
 
 
-// missing function in LwIP
-static const char *gai_strerror (int err) {
-    switch (err) {
-        case EAI_AGAIN:     return "temporary failure in name resolution";
-        case EAI_BADFLAGS:  return "invalid value for ai_flags field";
-        case EAI_FAIL:      return "non-recoverable failure in name resolution";
-        case EAI_FAMILY:    return "ai_family not supported";
-        case EAI_MEMORY:    return "memory allocation failure";
-        case EAI_NONAME:    return "name or service not known";
-        case EAI_SERVICE:   return "service not supported for ai_socktype";
-        case EAI_SOCKTYPE:  return "ai_socktype not supported";
-        default:            return "invalid gai_errno code";
-    }
-}
-
-
 ntpClient_t::ntpClient_t () {}
 
 ntpClient_t::ntpClient_t (const char *ntpServer0,

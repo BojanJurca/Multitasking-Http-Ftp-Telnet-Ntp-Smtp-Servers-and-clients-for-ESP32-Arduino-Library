@@ -416,6 +416,8 @@
                                 inline char recvChar (bool peekOnly = false);
                                 inline char peekChar ();
                                 inline char recvLine (char *buf, size_t len, bool trim = true);
+                                void doEcho () { __echo__ = true; }
+                                void dontEcho () { __echo__ = false; }
 
                         private:
 
@@ -739,6 +741,7 @@
                                                         return 0; // echo the last character to the screen
                                         }                
                                         // continue with default (repeat adding a space):
+                                        [[fallthrough]];
                                 default:  // fill the buffer 
                                         if (characters < len - 1) {
                                                 buf [characters] = c; buf [++ characters] = 0;
@@ -2019,6 +2022,7 @@
                         if (!__fileSystem__->userHasRightToAccessDirectory (fullPath, __homeDirectory__))       return "Access denyed";
 
                         // display information about files and subdirectories
+                        /*
                         bool firstRecord = true;
                         threadSafeFS::File d = __fileSystem__->open (fullPath); 
                         if (!d)                                                 
@@ -2033,6 +2037,16 @@
                                 firstRecord = false;
                         }
                         d.close ();
+                        */
+                        bool firstRecord = true;
+                        for (auto f : __fileSystem__->open (fullPath)) {
+                                Cstring<255> fullFileName = fullPath;
+                                if (fullFileName [fullFileName.length () - 1] != '/') fullFileName += '/'; fullFileName += f.name ();
+                                        if (sendString (firstRecord ? __fileSystem__->fileInformation (fullFileName) : Cstring<300> ("\r\n") + __fileSystem__->fileInformation (fullFileName)) <= 0) { 
+                                        return "\r"; 
+                                }
+                                firstRecord = false;
+                        }                        
                         return "\r"; // different than "" to let the calling function know that the command has been processed
                 }
         #endif
@@ -2063,6 +2077,7 @@
                                 firstRecord = false;
 
                                 // 3. display information about files and remember subdirectories in dirList
+                                /*
                                 threadSafeFS::File d = __fileSystem__->open (fullPath); 
                                 if (!d) return "Out of resources";
                                 for (threadSafeFS::File f = d.openNextFile (); f; f = d.openNextFile ()) {
@@ -2079,6 +2094,20 @@
                                         } 
                                 }
                                 d.close ();
+                                */
+                                for (auto f : __fileSystem__->open (fullPath)) {
+                                        Cstring<255> directoryPath = fullPath; 
+                                        if (directoryPath [directoryPath.length () - 1] != '/') 
+                                                directoryPath += '/'; 
+                                        directoryPath += f.name ();                       
+                                        if (f.isDirectory ()) {
+                                                // save directory name for later recursion
+                                                if (dirList.push (directoryPath)) return "Out of memory";
+                                        } else {
+                                                // output file information
+                                                if (sendString (Cstring<300> ("\r\n") + __fileSystem__->fileInformation (directoryPath, true)) <= 0) return "Out of memory";
+                                        } 
+                                }
                         }
                         return "\r"; // different than "" to let the calling function know that the command has been processed
                 }
@@ -2328,7 +2357,7 @@
                         bool redrawAllLines = true;
                         bool redrawLineAtCursor = false; 
                         bool redrawFooter = true;
-                        Cstring<300> message = Cstring<300> (" ") + Cstring<64> (lines.size ()) + " lines ";
+                        Cstring<64> message = Cstring<64> (" ") + Cstring<64> (lines.size ()) + " lines ";
                 
                                                 // clear screen
                                                 if (sendString ("\x1b[2J") <= 0) return "\r";  // ESC[2J = clear screen
@@ -2397,16 +2426,16 @@
                                                         redrawFooter = false;
                                                 }
                                 if (message != "")  {
-                                                        snprintf (s, s.max_size (), "\x1b[%i;2H%s", __clientWindowHeight__, (char *) message);
+                                                        snprintf (s.c_str (), s.max_size (), "\x1b[%i;2H%s", __clientWindowHeight__, message.c_str ());
                                                         if (sendString (s) <= 0) return "\r"; 
                                                         message = ""; redrawFooter = true; // we'll clear the message the next time screen redraws
                                                 }
 
                                 // b. restore cursor position - calculate screen coordinates from text coordinates
                                 {
-                                // ESC[line;columnH = move cursor to line;column
-                                snprintf (s, s.max_size (), "\x1b[%i;%iH", textCursorY - textScrollY + 2, textCursorX - textScrollX + 6);
-                                if (sendString (s) <= 0) return "\r"; // ESC[line;columnH = move cursor to line;column
+                                        // ESC[line;columnH = move cursor to line;column
+                                        snprintf (s, s.max_size (), "\x1b[%i;%iH", textCursorY - textScrollY + 2, textCursorX - textScrollX + 6);
+                                        if (sendString (s) <= 0) return "\r"; // ESC[line;columnH = move cursor to line;column
                                 }
                         
                                 // c. read and process incoming stream of characters
@@ -2662,14 +2691,15 @@
                         xSemaphoreTake (getFsMutex (), portMAX_DELAY);
                         Cstring<300> s;
                         if (__fileSystem__->readOpenedFiles.size ()) {
-                                s = "Files opened for reading\r\n   ";
+                                s = "Files opened for reading:\r\n   ";
                                 for (auto f: __fileSystem__->readOpenedFiles) {
                                         if (sendString (s + f) <= 0) return "\r";
                                         s = "\r\n   ";
                                 }
+                                s = "\r\n";
                         }
                         if (__fileSystem__->writeOpenedFiles.size ()) {
-                                s = "Files opened for writing\r\n   ";
+                                s += "Files opened for writing:\r\n   ";
                                 for (auto f: __fileSystem__->writeOpenedFiles) {
                                         if (sendString (s + f) <= 0) return "\r";
                                         s = "\r\n   ";
@@ -2679,6 +2709,5 @@
                         return "\r";
                 }
         #endif
-
 
 #endif

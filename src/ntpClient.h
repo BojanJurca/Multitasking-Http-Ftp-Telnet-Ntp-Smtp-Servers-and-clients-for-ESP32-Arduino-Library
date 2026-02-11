@@ -22,10 +22,7 @@
   #include <lwip/netdb.h>
   #include <time.h>
   #include <LwIpMutex.h>
-
-
-  // missing function in LwIP
-  static const char *gai_strerror (int err);
+  #include <gai_strerror.h>
 
 
   class ntpClient_t {

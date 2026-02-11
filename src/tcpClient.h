@@ -55,6 +55,7 @@
 
 
   #include <WiFi.h>
+  #include <gai_strerror.h>
   #include "tcpConnection.h"
 
 
@@ -67,10 +68,6 @@
   #ifndef CONNECT_TIMEOUT
     #define CONNECT_TIMEOUT (10)
   #endif
-
-
-  // missing function in LwIP
-  inline const char *gai_strerror (int err);
 
 
   class tcpClient_t : public tcpConnection_t {

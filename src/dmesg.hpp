@@ -1,5 +1,5 @@
 /*
- 
+
     dmesg.hpp
 
     This file is part of Multitasking HTTP, FTP, Telnet, NTP, SMTP servers and clients for ESP32 - Arduino library: https://github.com/BojanJurca/Multitasking-Http-Ftp-Telnet-Ntp-Smtp-Servers-and-clients-for-ESP32-Arduino-Library
@@ -19,6 +19,7 @@
 
     
     #include <rom/rtc.h>
+    #include <ostream.hpp>
     #include <Cstring.hpp>      // include LightweightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
     #include "threadSafeCircularQueue.hpp"
 
@@ -337,7 +338,7 @@
                     case ESP_SLEEP_WAKEUP_TOUCHPAD: return "ESP_SLEEP_WAKEUP_TOUCHPAD - wakeup caused by touchpad";
                     case ESP_SLEEP_WAKEUP_ULP:      return "ESP_SLEEP_WAKEUP_ULP - wakeup caused by ULP program";
                     default:                        return "WAKEUP REASON UNKNOWN - wakeup was not caused by deep sleep";
-                }   
+                }
             }
 
     };
@@ -345,19 +346,19 @@
     #ifdef __OSTREAM_HPP__
 
         inline ostream& operator << (ostream& os, const dmesgQueueEntry_t& entry) {
-            return os << entry.message;
+            return os << entry.message << endl;
         }
 
         template<size_t maxSize>
         inline ostream& operator << (ostream& os, const dmesgQueue_t<maxSize>& queue) {
             // if (queue.empty ()) return os; // don't need to check, dmesgQueue is never empty
-            return os << queue.back ();
+            return os << queue.back () << endl;
         }
 
     #endif
 
 
     // create a singleton working instance
-    inline dmesgQueue_t<DMESG_CIRCULAR_QUEUE_LENGTH> dmesgQueue;
+    static inline dmesgQueue_t<DMESG_CIRCULAR_QUEUE_LENGTH> dmesgQueue;
 
 #endif

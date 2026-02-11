@@ -5,7 +5,7 @@
     This file is part of Multitasking HTTP, FTP, Telnet, NTP, SMTP servers and clients for ESP32 - Arduino library: https://github.com/BojanJurca/Multitasking-Http-Ftp-Telnet-Ntp-Smtp-Servers-and-clients-for-ESP32-Arduino-Library
 
   
-    January 1, 2026, Bojan Jurca
+    February 6, 2026, Bojan Jurca
 
 */
 
@@ -15,11 +15,11 @@
 
 
     #include <WiFi.h>
-    #include "tcpClient.h"
     #include <mbedtls/base64.h>
     #include <Cstring.hpp>      // include LightweightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
     #include <dmesg.hpp>
     #include <ostream.hpp>  // use serial console if dmesg.hhp is not #included
+    #include "tcpClient.h"
 
 
     // ----- functions and variables in this modul -----
@@ -28,7 +28,6 @@
     // TUNNING PARAMETERS
 
     #define SMTP_TIME_OUT 3                         // 3 sec 
-    #define SMTP_BUFFER_SIZE 256                    // for constructing SMTP commands and reading SMTP reply
     #ifndef HOSTNAME
         #define HOSTNAME "Esp32Server"              // use default if not defined previously
     #endif

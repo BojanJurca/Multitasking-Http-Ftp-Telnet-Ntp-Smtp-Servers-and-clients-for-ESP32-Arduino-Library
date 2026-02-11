@@ -5,7 +5,7 @@
     This file is part of Multitasking HTTP, FTP, Telnet, NTP, SMTP servers and clients for ESP32 - Arduino library: https://github.com/BojanJurca/Multitasking-Http-Ftp-Telnet-Ntp-Smtp-Servers-and-clients-for-ESP32-Arduino-Library
     
 
-    Dec 25, 2025, Bojan Jurca
+    February 6, 2026, Bojan Jurca
 
 
     Classes implemented/used in this module:
@@ -89,12 +89,6 @@
     #include <Cstring.hpp>      // include LightweightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
     #include <FS.h>
     #include <threadSafeFS.h>
-    #ifdef __DMESG__
-        #include <dmesg.hpp>      // use dmesg if #included
-        #define endl ""
-    #else
-        #include <ostream.hpp>    // use serial console if not
-    #endif
 
 
     // TUNING PARAMETERS
