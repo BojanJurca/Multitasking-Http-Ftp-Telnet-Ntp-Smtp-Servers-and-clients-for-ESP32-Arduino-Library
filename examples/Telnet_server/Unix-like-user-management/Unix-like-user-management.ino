@@ -396,6 +396,10 @@ userManagement_t userManagement;
 
 // 4️⃣ Provide login callback function
 Cstring<255> getUserHomeDirectoryCallback (const Cstring<64>& userName, const Cstring<64>& password) {
+
+    // Must be reentrant !!!
+
+  
     Cstring<255> retVal;
     // check if userName and password are correct
     if (userManagement.checkUserNameAndPassword (userName, password))
@@ -408,6 +412,9 @@ Cstring<255> getUserHomeDirectoryCallback (const Cstring<64>& userName, const Cs
 // 5️⃣ Provide Telnet (uswer defined) command handler
 String telnetCommandHandlerCallback (int argc, char *argv [], telnetServer_t::telnetConnection_t *tcn) {
 
+    // Must be reentrant !!!
+
+  
     #define argv0is(X) (argc > 0 && !strcmp (argv[0], X))  
     #define argv1is(X) (argc > 1 && !strcmp (argv[1], X))
     #define argv2is(X) (argc > 2 && !strcmp (argv[2], X))
