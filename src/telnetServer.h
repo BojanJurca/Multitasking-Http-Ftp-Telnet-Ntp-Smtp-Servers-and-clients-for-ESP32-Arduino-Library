@@ -260,6 +260,9 @@
         #if (TELNET_UPTIME_COMMAND == 1) || (TELNET_DATE_COMMAND == 1) || (TELNET_NTPDATE_COMMAND == 1)
                 #include <ntpClient.h>
         #endif
+        #if TELNET_CRONTAB_COMMAND == 1
+                #include <cronDaemon.h>
+        #endif
         #if TELNET_PING_COMMAND == 1
                 #include <ThreadSafePing.h>
         #endif
@@ -1025,9 +1028,7 @@
                 #endif
 
                 #if TELNET_CRONTAB_COMMAND == 1
-                        // note implemented yet
-
-                        // else if (telnetArgv0Is ("crontab"))   { return argc == 1 ? __cronTab__ () : "Wrong syntax, use crontab"; }
+                        else if (telnetArgv0Is ("crontab"))     { return argc == 1 ? __cronTab__ () : "Wrong syntax, use crontab"; }
                 #endif
 
                 #if TELNET_PING_COMMAND == 1
@@ -1317,7 +1318,7 @@
                                                 #if TELNET_QUIT_COMMAND == 1
                                                         "\r\n      quit"
                                                 #endif
-                                                #if TELNET_UPTIME_COMMAND == 1 or TELNET_DATE_COMMAND == 1 or TELNET_NTPDATE_COMMAND == 1
+                                                #if TELNET_UPTIME_COMMAND == 1 or TELNET_DATE_COMMAND == 1 or TELNET_NTPDATE_COMMAND == 1 or TELNET_CRONTAB_COMMAND == 1
                                                         "\r\n  time commands:"
                                                 #endif
                                                 #if TELNET_UPTIME_COMMAND == 1                           
@@ -1482,7 +1483,7 @@
 
                                 if (firstRecord) firstRecord = false; else if (!s.concat ("\r\n")) outOfMemory = true;
                                 char c [80];
-                                if (trueTime && e.time > 1687461154) { // 2023/06/22 21:12:34, any valid time should be greater than this
+                                if (trueTime && e.time > 1600000000 ) { // 1600000000 ~2020
                                         struct tm slt; 
                                         localtime_r (&e.time, &slt); 
                                         #ifndef __LOCALE_HPP__
@@ -1531,7 +1532,7 @@
                                                 if (!s) return "Out of memory";
                                                 char c [25];
 
-                                                if (trueTime && (*e).time > 1687461154) { // 2023/06/22 21:12:34, any valid time should be greater than this
+                                                if (trueTime && (*e).time > 1600000000 ) { // 1600000000 ~2020
                                                         struct tm slt; 
                                                         localtime_r (&(*e).time, &slt); 
                                                         #ifndef __LOCALE_HPP__
@@ -1591,7 +1592,8 @@
         #if TELNET_DATE_COMMAND == 1 or TELNET_NTPDATE_COMMAND == 1
                 Cstring<300> telnetServer_t::telnetConnection_t::__getDateTime__ () {
                         time_t t = time (NULL);
-                        if (t < 1600000000) return "The time has not been set yet"; // ~2020
+                        if (t < 1600000000) //  1600000000 ~2020
+                                return "The time has not been set yet";
                         struct tm slt;
                         localtime_r (&t, &slt);
                         char s [80];
@@ -1638,38 +1640,35 @@
 
         #if TELNET_CRONTAB_COMMAND == 1
                 const char *telnetServer_t::telnetConnection_t::__cronTab__ () {
-
-                        return "not imlemented yet";
-
-                        /*
                         cronTab.lock ();
                         if (!cronTab.size ()) {
                                 sendString ("Crontab is empty");
                         } else {
                                 for (int i = 0; i < cronTab.size (); i ++) {
-                                cstring s;
-                                char c [27];
-                                if (cronTab [i].second == ANY)      s += " * "; else { sprintf (c, "%2i ", cronTab [i].second);      s += c; }
-                                if (cronTab [i].minute == ANY)      s += " * "; else { sprintf (c, "%2i ", cronTab [i].minute);      s += c; }
-                                if (cronTab [i].hour == ANY)        s += " * "; else { sprintf (c, "%2i ", cronTab [i].hour);        s += c; }
-                                if (cronTab [i].day == ANY)         s += " * "; else { sprintf (c, "%2i ", cronTab [i].day);         s += c; }
-                                if (cronTab [i].month == ANY)       s += " * "; else { sprintf (c, "%2i ", cronTab [i].month);       s += c; }
-                                if (cronTab [i].day_of_week == ANY) s += " * "; else { sprintf (c, "%2i ", cronTab [i].day_of_week); s += c; }
-                                if (cronTab [i].lastExecuted) {
-                                                                                // ascTime (localTime (__cronEntry__ [i].lastExecuted), c, sizeof (c));
-                                                                                s += " "; s += cronTab [i].lastExecuted; s += " "; 
-                                                                        } else { 
-                                                                                s += " (not executed yet)  "; 
-                                                                        }
-                                if (cronTab [i].readFromFile)       s += " from /etc/crontab  "; else s += " entered from code  ";
-                                s += cronTab [i].cronCommand;
+                                        Cstring<300> s;
+                                        char c [27];
+                                        if (cronTab [i].second == ANY)          s += " * "; else { sprintf (c, "%2i ", cronTab [i].second);      s += c; }
+                                        if (cronTab [i].minute == ANY)          s += " * "; else { sprintf (c, "%2i ", cronTab [i].minute);      s += c; }
+                                        if (cronTab [i].hour == ANY)            s += " * "; else { sprintf (c, "%2i ", cronTab [i].hour);        s += c; }
+                                        if (cronTab [i].day == ANY)             s += " * "; else { sprintf (c, "%2i ", cronTab [i].day);         s += c; }
+                                        if (cronTab [i].month == ANY)           s += " * "; else { sprintf (c, "%2i ", cronTab [i].month);       s += c; }
+                                        if (cronTab [i].day_of_week == ANY)     s += " * "; else { sprintf (c, "%2i ", cronTab [i].day_of_week); s += c; }
+                                        if (cronTab [i].lastExecuted)           {
+                                                                                        // ascTime (localTime (__cronEntry__ [i].lastExecuted), c, sizeof (c));
+                                                                                        struct tm lastExecuted;
+                                                                                        localtime_r (&cronTab [i].lastExecuted, &lastExecuted);
+                                                                                        s += " "; s += lastExecuted; s += " "; 
+                                                                                } else { 
+                                                                                        s += " (not executed yet)  "; 
+                                                                                }
+                                        if (cronTab [i].readFromFile)           s += " from /etc/crontab  "; else s += " entered from code  ";
+                                        s += cronTab [i].cronCommand;
                                                                                 s += "\r\n";
-                                if (sendString (s.c_str ()) <= 0) break;
+                                        if (sendString (s.c_str ()) <= 0) break;
                                 }
                         }
                         cronTab.unlock ();
                         return "\r"; // different than "" to let the calling function know that the command has been processed
-                        */
                 }
         #endif
 
@@ -2220,33 +2219,34 @@
                         threadSafeFS::File f = __fileSystem__->open (fullPath, FILE_WRITE);
                         if (f) {
                                 while (char c = recvChar ()) { 
-                                switch (c) {
-                                        case 0:     // Error
-                                        case 3:     // Ctrl-C
-                                                f.close (); 
-                                                return fullPath + " not fully written";
-                                        case 4:     // Ctrl-D or Ctrl-Z
-                                                f.close (); 
-                                                return Cstring<300> ("\r\n") + fullPath + " written";
-                                        case 10:    // ignore
-                                                break;
-                                        case 13:    // CR -> CRLF
-                                                if (f.write ((uint8_t *) "\r\n", 2) != 2) { 
+                                        switch (c) {
+                                                case 0:     // Error
+                                                case 3:     // Ctrl-C
                                                         f.close (); 
-                                                        return Cstring<300> ("Can't write ") + fullPath;
-                                                } 
-                                                // echo
-                                                if (sendString ("\r\n") <= 0) return "\r";
-                                                break;
-                                        default:    // character 
-                                                if (f.write ((uint8_t *) &c, 1) != 1) { 
+                                                        return fullPath + " not fully written";
+                                                case 4:     // Ctrl-D or Ctrl-Z
                                                         f.close (); 
-                                                        return Cstring<300> ("Can't write ") + fullPath;
-                                                } 
-                                                // echo
-                                                if (sendBlock (&c, 1) <= 0) return "\r";
-                                                break;
-                                }
+                                                        return Cstring<300> ("\r\n") + fullPath + " written";
+                                                case 10:    // ignore
+                                                        break;
+                                                case 13:    // CR -> CRLF
+                                                        if (f.write ((uint8_t *) "\r\n", 2) != 2) { 
+                                                                f.close (); 
+                                                                return Cstring<300> ("Can't write ") + fullPath;
+                                                        } 
+                                                        // echo
+                                                        if (sendString ("\r\n") <= 0) return "\r";
+                                                        break;
+                                                default:    // character 
+                                                        if (f.write ((uint8_t *) &c, 1) != 1) { 
+                                                                f.close (); 
+                                                                return Cstring<300> ("Can't write ") + fullPath;
+                                                        } 
+                                                        // echo
+                                                        if (sendBlock (&c, 1) <= 0) return "\r";
+                                                                Serial.printf ("   %i = %c\n", (int) c, c);                                                        
+                                                        break;
+                                        }
                                 }
                                 f.close ();
                         } else {
