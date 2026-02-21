@@ -8,3 +8,5 @@ Dependencies:
 https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
 
 https://github.com/BojanJurca/Thread-safe-ping-Arduino-library-for-ESP32
+
+https://github.com/BojanJurca/Cron-Daemon-for-Arduino
