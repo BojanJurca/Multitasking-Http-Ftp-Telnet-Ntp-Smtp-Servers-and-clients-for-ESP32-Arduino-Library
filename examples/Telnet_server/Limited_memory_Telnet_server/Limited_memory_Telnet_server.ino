@@ -13,6 +13,7 @@ s#include <WiFi.h>
 #define TELNET_UPTIME_COMMAND 1     // 0=exclude, 1=include, date is included by default
 #define TELNET_DATE_COMMAND 1       // 0=exclude, 1=include, date is included by default
 #define TELNET_NTPDATE_COMMAND 1    // 0=exclude, 1=include, ntpdate is included by default
+#define TELNET_CRONTAB_COMMAND 0    // 0=exclude, 1=include, crontab is included by default
 #define TELNET_PING_COMMAND 1       // 0=exclude, 1=include, ping is included by default
 #define TELNET_IFCONFIG_COMMAND 1   // 0=exclude, 1=include, ifconfig is included by default
 #define TELNET_IW_COMMAND 0         // 0=exclude, 1=include, iw is included by default
