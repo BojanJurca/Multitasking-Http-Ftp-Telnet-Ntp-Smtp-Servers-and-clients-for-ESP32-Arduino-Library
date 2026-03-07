@@ -5,7 +5,7 @@
     This file is part of Multitasking HTTP, FTP, Telnet, NTP, SMTP servers and clients for ESP32 - Arduino library: https://github.com/BojanJurca/Multitasking-Http-Ftp-Telnet-Ntp-Smtp-Servers-and-clients-for-ESP32-Arduino-Library
 
 
-    Feruary 6, 2026, Bojan Jurca
+    March 12, 2026, Bojan Jurca
 
 
     Classes implemented/used in this module:
@@ -1409,9 +1409,17 @@
                 const char *telnetServer_t::telnetConnection_t::__clear__ () { return "\x1b[2J"; } // ESC[2J = clear screen
         #endif
 
-        #if TELNET_UNAME_COMMAND == 1
+        #if TELNET_UNAME_COMMAND == 1 
                 #include "version_of_servers.h"
-                Cstring<300> telnetServer_t::telnetConnection_t::__uname__ () { return Cstring<300> (MACHINETYPE " (") + Cstring<300> ((int) ESP.getCpuFreqMHz ()) + " MHz) " HOSTNAME " SDK: " + ESP.getSdkVersion () + " " VERSION_OF_SERVERS " compiled: " __DATE__ " " __TIME__  + " C++: " + Cstring<64> ((unsigned int) __cplusplus); }
+                Cstring<300> telnetServer_t::telnetConnection_t::__uname__ () { 
+                        return  Cstring<300> (HOSTNAME "\r\n") + 
+                                Cstring<300> (MACHINETYPE " (") + Cstring<300> ((int) ESP.getCpuFreqMHz ()) + " MHz)\r\n"
+                                "SDK " + ESP.getSdkVersion () + "\r\n"
+                                "ESP Arduino core " ESP_ARDUINO_VERSION_STR "\r\n"
+                                VERSION_OF_SERVERS "\r\n"
+                                "C++ " + Cstring<64> ((unsigned int) __cplusplus) + "\r\n"
+                                "compiled " __DATE__ " " __TIME__;
+                }
         #endif
 
         #if TELNET_FREE_COMMAND == 1

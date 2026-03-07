@@ -7,7 +7,7 @@
 
   A FS wrapper with mutex for multitasking.
 
-  February 6, 2026, Bojan Jurca
+  March 12, 2026, Bojan Jurca
 
 */
 
@@ -283,6 +283,91 @@ size_t threadSafeFS::File::print (const long double& value) {
     char buf [331];
     sprintf (buf, "%Lf", value);
     return print (buf);
+}
+
+
+// File::Iterator implementation
+
+threadSafeFS::File::Iterator::Iterator () : __dir__ (NULL), __fs__ (NULL), __end__ (true) {}
+
+threadSafeFS::File::Iterator::Iterator (FS* fs, fs::File* dir) : __dir__ (dir), __fs__ (fs) {
+    xSemaphoreTake (getFsMutex (), portMAX_DELAY);
+        __current__ = __dir__->openNextFile ();
+        if (!__current__)
+            __end__ = true;
+
+        // normmaly this would do, but SPIFFS should report a shorter path to subdirectories
+        else {
+            int l = strlen (__dir__->path ()); if (l == 1) l = 0;
+            if (__current__.path () [l] == '/') {
+                const char *p = strchr (__current__.path () + l + 1, '/');
+                if (p) { // a file that actually belongs to subdirectory, this could only happen on SPIFFS
+                    Cstring<31> subDirectory = __current__.path (); subDirectory [p - __current__.path ()] = 0;
+                    subDirectories.push_back (subDirectory);
+                    // report a shorter file path to the calling program
+                    __current__.close ();
+                    __current__ = __fs__->__fileSystem__.open (subDirectory.c_str ());
+                }
+            }
+        }
+    xSemaphoreGive (getFsMutex ());
+}
+
+bool threadSafeFS::File::Iterator::operator != (const Iterator& other) const { 
+    return !__end__; 
+}
+
+threadSafeFS::File threadSafeFS::File::Iterator::operator *() {
+    return File (*__fs__, std::move (__current__));
+}
+
+threadSafeFS::File::Iterator& threadSafeFS::File::Iterator::operator ++() {
+    xSemaphoreTake (getFsMutex (), portMAX_DELAY);
+        while (true) { // while loop is only needed for SPIFFS
+            __current__ = __dir__->openNextFile ();
+            if (!__current__)
+                __end__ = true;
+
+            // normmaly this would do, but SPIFFS should report a shorter path to subdirectories and do this only once
+            else {
+                int l = strlen (__dir__->path ()); if (l == 1) l = 0;
+                if (__current__.path () [l] == '/') {
+                    const char *p = strchr (__current__.path () + l + 1, '/');
+                    if (p) { // a file that actually belongs to subdirectory, this could only happen on SPIFFS
+                        Cstring<31> subDirectory = __current__.path (); subDirectory [p - __current__.path ()] = 0;
+                        bool alreadyReported = false;
+                        for (auto e : subDirectories) {
+                            if (e == subDirectory) {
+                                alreadyReported = true;
+                                break;
+                            }
+                        }
+                        if (alreadyReported) {
+                            // skip reporting this subdirectory
+                            __current__.close ();
+                            continue; // while loop
+                        } else {
+                            subDirectories.push_back (subDirectory);
+                            // report a shorter file path to the calling program
+                            __current__.close ();
+                            __current__ = __fs__->__fileSystem__.open (subDirectory.c_str ());
+                        }
+                    }
+                }
+            }
+            break; // while loop is only needed for SPIFFS
+        }
+    xSemaphoreGive (getFsMutex ());
+    return *this;
+}
+
+threadSafeFS::File::Iterator threadSafeFS::File::begin () {
+    if (!__file__) return Iterator ();
+    return Iterator (__threadSafeFileSystem__, __file__);
+}
+
+threadSafeFS::File::Iterator threadSafeFS::File::end () {
+    return Iterator ();
 }
 
 

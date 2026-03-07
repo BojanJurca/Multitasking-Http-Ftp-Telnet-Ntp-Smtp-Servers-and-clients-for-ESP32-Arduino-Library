@@ -7,7 +7,7 @@
 
   A FS wrapper with mutex for multitasking.
 
-  February 6, 2026, Bojan Jurca
+  March 12, 2026, Bojan Jurca
 
 */
 
@@ -52,6 +52,8 @@
                 time_t getLastWrite ();
                 size_t write (const uint8_t* buf, size_t len);
                 size_t write (uint8_t b);
+
+
                 size_t read (uint8_t* buf, size_t len);
                 int read ();
                 int available ();
@@ -84,48 +86,30 @@
                     return print (value) + print ("\r\n");
                 }
 
+                size_t println () {
+                    return println ();
+                }
 
-                // iterate through directory
+                // iterate through a directory
                 class Iterator {
+                    public:
+                        Iterator ();
+                        Iterator (FS* fs, fs::File* dir);
+                        bool operator != (const Iterator& other) const;
+                        File operator *();
+                        Iterator& operator ++();
                     private:
                         fs::File* __dir__;
                         fs::File __current__;
                         FS* __fs__;
                         bool __end__ = false;
 
-                    public:
-                        Iterator () : __dir__ (NULL), __fs__ (NULL), __end__ (true) {}
-
-                        Iterator (FS* fs, fs::File* dir) : __dir__ (dir), __fs__ (fs) {
-                            xSemaphoreTake (getFsMutex (), portMAX_DELAY);
-                            __current__ = __dir__->openNextFile ();
-                            xSemaphoreGive (getFsMutex ());
-                            if (!__current__) __end__ = true;
-                        }
-
-                        bool operator != (const Iterator& other) const { return !__end__; }
-
-                        File operator* () { return File (*__fs__, std::move (__current__)); }
-
-                        Iterator& operator ++ () {
-                            xSemaphoreTake (getFsMutex (), portMAX_DELAY);
-                            __current__ = __dir__->openNextFile ();
-                            xSemaphoreGive (getFsMutex ());
-
-                            if (!__current__) __end__ = true;
-                            return *this;
-                        }
+                        // for SPIFFS only
+                        list<Cstring<31>> subDirectories;
                 };
 
-                Iterator begin () {
-                    if (!__file__) return Iterator ();
-                    return Iterator (__threadSafeFileSystem__, __file__);
-                }
-
-                Iterator end () {
-                    return Iterator ();
-                }
-
+                Iterator begin ();
+                Iterator end ();
         };
 
 
@@ -139,7 +123,14 @@
             list<Cstring<255>> readOpenedFiles;
             list<Cstring<255>> writeOpenedFiles;
 
-            FS (fs::FS& fileSystem);
+            FS (fs::FS& fileSystem); // for file systems
+
+            /*
+            bool format ();
+            bool begin (bool formatOnFail = false);
+            void end ();
+            */
+
 
             File open (const char* path, const char* mode = FILE_READ);
             File open (const String& path, const char* mode = FILE_READ);
@@ -176,9 +167,10 @@
             bool readConfiguration (char* buffer, size_t bufferSize, const char* fileName);
         };
 
+
     }; // namespace
 
-    // fprintf compatibility
+    // fprintf compatibility with standard C
     size_t fprintf (threadSafeFS::File &f, const char *fmt, ...);
 
 #endif

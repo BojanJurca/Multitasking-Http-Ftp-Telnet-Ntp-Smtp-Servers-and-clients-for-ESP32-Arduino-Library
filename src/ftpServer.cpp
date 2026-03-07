@@ -5,7 +5,7 @@
     This file is part of Multitasking HTTP, FTP, Telnet, NTP, SMTP servers and clients for ESP32 - Arduino library: https://github.com/BojanJurca/Multitasking-Http-Ftp-Telnet-Ntp-Smtp-Servers-and-clients-for-ESP32-Arduino-Library
 
 
-    February 6, 2026, Bojan Jurca
+    March 12, 2026, Bojan Jurca
 
 
     Classes implemented/used in this module:
@@ -185,7 +185,7 @@ Cstring<300> ftpServer_t::ftpControlConnection_t::__internalCommandHandler__ (in
     #define ftpArgv1Is(X) (argc > 1 && !strcmp(argv[1], X))
     #define ftpArgv2Is(X) (argc > 2 && !strcmp(argv[2], X))
 
-    // for (int i = 0; i < argc; i++) log_i (" %s", argv [i]); log_i ("\n");
+    // Serial.printf ("\nFTP __internalCommandHandler__"); for (int i = 0; i < argc; i++) Serial.printf (" %s", argv [i]);
 
     if (ftpArgv0Is ("QUIT"))                            return "221 closing connection\r\n";
 
@@ -224,7 +224,7 @@ Cstring<300> ftpServer_t::ftpControlConnection_t::__internalCommandHandler__ (in
         argv [1] = (char *) "";
     }
 
-    if (ftpArgv0Is ("LIST") || ftpArgv0Is ("NLST"))                             return __NLST__(argc > 1 ? argv [1] : (char *) __workingDirectory__);
+    if (ftpArgv0Is ("LIST") || ftpArgv0Is ("NLST"))                             return __NLST__ (argc > 1 ? argv [1] : (char *) __workingDirectory__);
 
     else if (ftpArgv0Is ("SIZE"))                                               return __SIZE__ (argv [1]);
 
@@ -256,7 +256,7 @@ Cstring<300> ftpServer_t::ftpControlConnection_t::__PASS__ (char *password) {
     else
         __homeDirectory__ = "/";
 
-    if (!__fileSystem__.isDirectory (__homeDirectory__))                     
+    if (!__fileSystem__.isDirectory (__homeDirectory__)) // isDIrectory is always true on SPIFFS                    
         return "530 invalid user's home directory\r\n";
 
     if (__homeDirectory__ != "") {
@@ -279,7 +279,7 @@ Cstring<300> ftpServer_t::ftpControlConnection_t::__CWD__ (char *directoryName) 
     if (__homeDirectory__ == "")                                                        return "530 not logged in\r\n";
     if (!__fileSystem__.mounted ())                                                     return "421 file system not mounted\r\n";
     Cstring<255> fullPath = __fileSystem__.makeFullPath (directoryName, __workingDirectory__);
-    if (!__fileSystem__.isDirectory (fullPath))                                         return "501 invalid directory name\r\n";
+    if (!__fileSystem__.isDirectory (fullPath))                                         return "501 invalid directory name\r\n"; // isDirectory is always true on SPIFFS
     if (!__fileSystem__.userHasRightToAccessDirectory (fullPath, __homeDirectory__))    return "550 access denyed\r\n";
 
     __workingDirectory__ = fullPath;
@@ -489,7 +489,7 @@ const char *ftpServer_t::ftpControlConnection_t::__NLST__ (char *directoryName) 
             retVal = "421 file system not mounted\r\n";
         } else {
             Cstring<255> fullPath = __fileSystem__.makeFullPath (directoryName, __workingDirectory__);
-            if (fullPath == "" || !__fileSystem__.isDirectory (fullPath)) {
+            if (fullPath == "" /* || !__fileSystem__.isDirectory (fullPath) */ ) { // isDirectory is always true on SPIFFS
                 retVal = "501 invalid directory name\r\n";
             } else {
                 if (!__fileSystem__.userHasRightToAccessDirectory (fullPath, __homeDirectory__)) {
@@ -524,6 +524,8 @@ const char *ftpServer_t::ftpControlConnection_t::__NLST__ (char *directoryName) 
                         }
                         if (!*retVal)
                             sendString ("226 data transfer complete\r\n");
+                        else
+                            sendString (retVal);
                     }
                 }
             }
@@ -583,7 +585,7 @@ const char *ftpServer_t::ftpControlConnection_t::__RETR__ (char *fileName) {
             retVal = "421 file system not mounted\r\n";
         } else {
             Cstring<255> fullPath = __fileSystem__.makeFullPath (fileName, __workingDirectory__);
-            if (fullPath == "" || __fileSystem__.isDirectory (fullPath)) {
+            if (fullPath == "" /* || __fileSystem__.isDirectory (fullPath) */) { // isDirectory is always true on SPIFFS
                 retVal = "501 invalid file name\r\n";
             } else {
                 if (!__fileSystem__.userHasRightToAccessDirectory (fullPath, __homeDirectory__)) {
@@ -634,9 +636,8 @@ const char *ftpServer_t::ftpControlConnection_t::__STOR__ (char *fileName) {
         if (!__fileSystem__.mounted ()) {
             retVal = "421 file system not mounted\r\n";
         } else {
-            Cstring<255> fullPath =
-                __fileSystem__.makeFullPath (fileName, __workingDirectory__);
-            if (fullPath == "" || __fileSystem__.isDirectory (fullPath)) {
+            Cstring<255> fullPath = __fileSystem__.makeFullPath (fileName, __workingDirectory__);
+            if (fullPath == "" /* || __fileSystem__.isDirectory (fullPath) */ ) { // isDirectory is always true on SPIFFS
                 retVal = "501 invalid file name\r\n";
             } else {
                 if (!__fileSystem__.userHasRightToAccessDirectory (fullPath, __homeDirectory__)) {
