@@ -1,5 +1,7 @@
 #include <WiFi.h>
-#include <LittleFS.h>             // Or FFat.h or/and SD.h
+#include <SPIFFS.h>               // Or LittleFS.h or FFat.h or SD.h ...
+                                  //    SPIFFS seems to be the most stable choice although it has its limitations:
+                                  //    speed, does not support real directories, does not support file times, shorter file names
 #include <threadSafeFS.h>         // Include thread-safe wrapper since LittleFS, FFat and SD file systems are not thread safe
 using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operations form now on in your code
 #include <ntpClient.h>            // NTP client is neede only for time commands
@@ -17,6 +19,7 @@ using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operat
 #define TELNET_UPTIME_COMMAND 1     // 0=exclude, 1=include, date is included by default
 #define TELNET_DATE_COMMAND 1       // 0=exclude, 1=include, date is included by default
 #define TELNET_NTPDATE_COMMAND 1    // 0=exclude, 1=include, ntpdate is included by default
+#define TELNET_CRONTAB_COMMAND 0    // 0=exclude, 1=include, crontab is included by default
 #define TELNET_PING_COMMAND 1       // 0=exclude, 1=include, ping is included by default
 #define TELNET_IFCONFIG_COMMAND 1   // 0=exclude, 1=include, ifconfig is included by default
 #define TELNET_IW_COMMAND 0         // 0=exclude, 1=include, iw is included by default
@@ -40,8 +43,8 @@ using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operat
 
 #include <telnetServer.h>
 
-// Crete thread-safe wrapper arround LittleFS (or FFat or SD)
-threadSafeFS::FS TSFS (LittleFS);
+// Crete thread-safe wrapper arround SPIFFS (or LittleFS or FFat or SD ...)
+threadSafeFS::FS TSFS (SPIFFS);   // Or LittleFS or FFat or SD ...
 
 telnetServer_t *telnetServer = NULL;
 
@@ -62,7 +65,7 @@ Cstring<255> getUserHomeDirectoryCallback (const Cstring<64>& userName, const Cs
 
 void setup () {
   Serial.begin (115200);
-  LittleFS.begin (true);
+  SPIFFS.begin (true);
   WiFi.begin ("YOUR_SSID", "YOUR_PASSWORD");
 
 
