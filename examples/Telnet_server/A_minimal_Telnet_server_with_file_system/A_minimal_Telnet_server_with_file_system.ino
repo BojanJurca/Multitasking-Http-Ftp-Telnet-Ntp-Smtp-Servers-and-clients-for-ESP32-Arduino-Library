@@ -1,5 +1,7 @@
 #include <WiFi.h>
-#include <LittleFS.h>             // Or FFat.h or/and SD.h
+#include <SPIFFS.h>               // Or LittleFS.h or FFat.h or SD.h ...
+                                  //    SPIFFS seems to be the most stable choice although it has its limitations:
+                                  //    speed, does not really support directories, does not support file times, shorter file names
 #include <threadSafeFS.h>         // Include thread-safe wrapper since LittleFS, FFat and SD file systems are not thread safe
 using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operations form now on in your code
 #include <ntpClient.h>            // NTP client is neede only for time commands
@@ -8,22 +10,23 @@ using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operat
 
 // 1️⃣ Choose which built-in Telnet commands will be included
 #define TELNET_CLEAR_COMMAND 1      // 0=exclude, 1=include, clear is included by default
-#define TELNET_UNAME_COMMAND 1      // 0=exclude, 1=include, uname is included by default
-#define TELNET_FREE_COMMAND 1       // 0=exclude, 1=include, free is included by default
-#define TELNET_NOHUP_COMMAND 1      // 0=exclude, 1=include, nohup is included by default
-#define TELNET_REBOOT_COMMAND 1     // 0=exclude, 1=include, reboot is included by default
-#define TELNET_DMESG_COMMAND 1      // 0=exclude, 1=include, dmesg is included by default
+#define TELNET_UNAME_COMMAND 0      // 0=exclude, 1=include, uname is included by default
+#define TELNET_FREE_COMMAND 0       // 0=exclude, 1=include, free is included by default
+#define TELNET_NOHUP_COMMAND 0      // 0=exclude, 1=include, nohup is included by default
+#define TELNET_REBOOT_COMMAND 0     // 0=exclude, 1=include, reboot is included by default
+#define TELNET_DMESG_COMMAND 0      // 0=exclude, 1=include, dmesg is included by default
 #define TELNET_QUIT_COMMAND 1       // 0=exclude, 1=include, quit is included by default
 #define TELNET_UPTIME_COMMAND 1     // 0=exclude, 1=include, date is included by default
 #define TELNET_DATE_COMMAND 1       // 0=exclude, 1=include, date is included by default
 #define TELNET_NTPDATE_COMMAND 1    // 0=exclude, 1=include, ntpdate is included by default
-#define TELNET_PING_COMMAND 1       // 0=exclude, 1=include, ping is included by default
-#define TELNET_IFCONFIG_COMMAND 1   // 0=exclude, 1=include, ifconfig is included by default
-#define TELNET_IW_COMMAND 1         // 0=exclude, 1=include, iw is included by default
-#define TELNET_NETSTAT_COMMAND 1    // 0=exclude, 1=include, netstat is included by default
-#define TELNET_KILL_COMMAND 1       // 0=exclude, 1=include, kill is included by default
-#define TELNET_CURL_COMMAND 1       // 0=exclude, 1=include, curl is included by default
-#define TELNET_SENDMAIL_COMMAND 1   // 0=exclude, 1=include, sendmail is included by default
+#define TELNET_CRONTAB_COMMAND 0    // 0=exclude, 1=include, crontab is included by default
+#define TELNET_PING_COMMAND 0       // 0=exclude, 1=include, ping is included by default
+#define TELNET_IFCONFIG_COMMAND 0   // 0=exclude, 1=include, ifconfig is included by default
+#define TELNET_IW_COMMAND 0         // 0=exclude, 1=include, iw is included by default
+#define TELNET_NETSTAT_COMMAND 0    // 0=exclude, 1=include, netstat is included by default
+#define TELNET_KILL_COMMAND 0       // 0=exclude, 1=include, kill is included by default
+#define TELNET_CURL_COMMAND 0       // 0=exclude, 1=include, curl is included by default
+#define TELNET_SENDMAIL_COMMAND 0   // 0=exclude, 1=include, sendmail is included by default
 #define TELNET_LS_COMMAND 1         // 0=exclude, 1=include, ls is included by default
 #define TELNET_TREE_COMMAND 1       // 0=exclude, 1=include, tree is included by default
 #define TELNET_MKDIR_COMMAND 1      // 0=exclude, 1=include, mkdir is included by default
@@ -42,7 +45,7 @@ using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operat
 
 
 // 2️⃣ Crete thread-safe wrapper arround LittleFS (or FFat or SD)
-threadSafeFS::FS TSFS (LittleFS);
+threadSafeFS::FS TSFS (SPIFFS);   // Or LittleFS or FFat or SD ...
 
 
 telnetServer_t *telnetServer = NULL;
@@ -52,7 +55,7 @@ void setup () {
 
 
   // 3️⃣ Start LittleFS (or FFat or SD)
-  LittleFS.begin (true);
+  SPIFFS.begin (true);
 
 
   // 4️⃣ Start WiFi connection
@@ -95,6 +98,13 @@ void setup () {
     f.print ("This is a test file.");
     f.close ();
   }
+
+  
+  while (WiFi.localIP () == IPAddress (0, 0, 0, 0)) { // wait until we get IP from router's DHCP
+      delay (1000); 
+      Serial.println ("   ."); 
+  } 
+  Serial.print ("Got IP addess: "); Serial.println (WiFi.localIP ());  
 
 
   // ...
