@@ -1,11 +1,11 @@
 #include <WiFi.h>
-#include <LittleFS.h>
+#include <SPIFFS.h>
 #include <threadSafeFS.h>
 #include <Cstring.hpp>
 
 
 // 1️⃣ Include thread-safe file system (usernames and password are stored in files)
-threadSafeFS::FS TSFS (LittleFS);
+threadSafeFS::FS TSFS (SPIFFS);
 using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operations form now on in your code
 
 
@@ -20,6 +20,7 @@ using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operat
 #define TELNET_UPTIME_COMMAND 0     // 0=exclude, 1=include, date is included by default
 #define TELNET_DATE_COMMAND 0       // 0=exclude, 1=include, date is included by default
 #define TELNET_NTPDATE_COMMAND 0    // 0=exclude, 1=include, ntpdate is included by default
+#define TELNET_CRONTAB_COMMAND 0    // 0=exclude, 1=include, crontab is included by default
 #define TELNET_PING_COMMAND 0       // 0=exclude, 1=include, ping is included by default
 #define TELNET_IFCONFIG_COMMAND 0   // 0=exclude, 1=include, ifconfig is included by default
 #define TELNET_IW_COMMAND 0         // 0=exclude, 1=include, iw is included by default
@@ -399,7 +400,7 @@ Cstring<255> getUserHomeDirectoryCallback (const Cstring<64>& userName, const Cs
 
     // Must be reentrant !!!
 
-  
+
     Cstring<255> retVal;
     // check if userName and password are correct
     if (userManagement.checkUserNameAndPassword (userName, password))
@@ -413,8 +414,8 @@ Cstring<255> getUserHomeDirectoryCallback (const Cstring<64>& userName, const Cs
 String telnetCommandHandlerCallback (int argc, char *argv [], telnetServer_t::telnetConnection_t *tcn) {
 
     // Must be reentrant !!!
+    
 
-  
     #define argv0is(X) (argc > 0 && !strcmp (argv[0], X))  
     #define argv1is(X) (argc > 1 && !strcmp (argv[1], X))
     #define argv2is(X) (argc > 2 && !strcmp (argv[2], X))
@@ -511,11 +512,13 @@ String telnetCommandHandlerCallback (int argc, char *argv [], telnetServer_t::te
 void setup () {
   Serial.begin (115200);
   WiFi.begin ("YOUR_SSID", "YOUR_PASSWORD");
-  LittleFS.begin (true);
+  SPIFFS.begin (true);
+
 
   // 6️⃣ Create default /etc/passwd and /etc/shadow (with root/rootpassword and webadmin/webadminpassword) it they don't exist yet
   userManagement.initialize ();
-  
+
+
   // 7️⃣ Create Telnet server instance with user-defined callback functions for login and handling commands
   telnetServer = new (std::nothrow) telnetServer_t (TSFS, getUserHomeDirectoryCallback, telnetCommandHandlerCallback);  // optional arguments:
                                                                                                                         // Cstring<255> (*getUserHomeDirectory) (const Cstring<64>& userName, const Cstring<64>& password) = NULL
@@ -543,4 +546,4 @@ void setup () {
 
 void loop () {
 
-} 
+}
