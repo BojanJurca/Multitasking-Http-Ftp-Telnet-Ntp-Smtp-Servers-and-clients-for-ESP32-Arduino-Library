@@ -1,5 +1,5 @@
 #include <WiFi.h>
-#include <LittleFS.h>
+#include <LittleFS.h>             // Or SPIFFS.h or FFat.h or SD.h ...
 #include <threadSafeFS.h>         // Include thread-safe wrapper since LittleFS, FFat and SD file systems are not thread safe
 threadSafeFS::FS TSFS (LittleFS); // Crete thread-safe wrapper arround LittleFS (or FFat or SD)
 using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operations form now on in your code
