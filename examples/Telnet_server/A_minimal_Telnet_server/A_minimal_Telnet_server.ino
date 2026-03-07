@@ -1,6 +1,6 @@
 #include <WiFi.h>
 #include <ntpClient.h>            // NTP client is neede only for time commands
-#define HOSTNAME "Esp32Server"    // Choose your server's name - this is how Telnet server would introduce itself to the clients
+#define HOSTNAME "Esp32Server"    // Choose your server's name - this is how Telnet server would introduce itself to its clients
 
 
 // 1️⃣ Choose which built-in Telnet commands will be included
@@ -14,6 +14,7 @@
 #define TELNET_UPTIME_COMMAND 1     // 0=exclude, 1=include, date is included by default
 #define TELNET_DATE_COMMAND 1       // 0=exclude, 1=include, date is included by default
 #define TELNET_NTPDATE_COMMAND 1    // 0=exclude, 1=include, ntpdate is included by default
+#define TELNET_CRONTAB_COMMAND 0    // 0=exclude, 1=include, crontab is included by default
 #define TELNET_PING_COMMAND 1       // 0=exclude, 1=include, ping is included by default
 #define TELNET_IFCONFIG_COMMAND 1   // 0=exclude, 1=include, ifconfig is included by default
 #define TELNET_IW_COMMAND 0         // 0=exclude, 1=include, iw is included by default
@@ -42,10 +43,10 @@ telnetServer_t *telnetServer = NULL;
 void setup () {
   Serial.begin (115200);
 
-  
+
   // 2️⃣ Start WiFi connection
   WiFi.begin ("YOUR_SSID", "YOUR_PASSWORD");
-  
+
 
   // 3️⃣  Create Telnet server instance
   telnetServer = new (std::nothrow) telnetServer_t ();  // optional arguments:
@@ -55,14 +56,14 @@ void setup () {
                                                         // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL
                                                         // bool runListenerInItsOwnTask = true
 
-  
+
   // 4️⃣ Check if Telnet server instance is created && Telnet server is running
   if (telnetServer && *telnetServer)
     Serial.println ("Telnet server started");
   else
     Serial.println ("Telnet server did not start");
 
-  
+
   // 5️⃣ Use Telent client to connect to ESP32's IP address
   while (WiFi.localIP () == IPAddress (0, 0, 0, 0)) { // wait until we get IP from router's DHCP
       delay (1000); 
@@ -70,7 +71,7 @@ void setup () {
   } 
   Serial.print ("Got IP addess: "); Serial.println (WiFi.localIP ());
 
-  
+
   // 6️⃣ Setting the time is only important for time commands
   setenv ("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1); // or select another (POSIX) time zones: https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
   ntpClient_t ntpClient ("1.si.pool.ntp.org", "2.si.pool.ntp.org", "3.si.pool.ntp.org");
