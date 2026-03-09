@@ -10,3 +10,5 @@ https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Ardu
 https://github.com/BojanJurca/Thread-safe-ping-Arduino-library-for-ESP32
 
 https://github.com/BojanJurca/Cron-Daemon-for-Arduino
+
+https://github.com/BojanJurca/Thread-safe-file-sytem-wrapper-Arduino-library-for-ESP32
