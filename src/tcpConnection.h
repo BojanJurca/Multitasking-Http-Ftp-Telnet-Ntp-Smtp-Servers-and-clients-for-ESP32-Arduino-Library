@@ -105,7 +105,7 @@
             inline time_t getIdleTimeout () __attribute__((always_inline)) { return __idleTimeout__; }
             inline void setIdleTimeout (time_t seconds) __attribute__((always_inline)) { __idleTimeout__ = seconds; }
             inline void stillActive () __attribute__((always_inline)) { __lastActive__ = millis (); }
-            inline bool idleTimeout () __attribute__((always_inline)) { return __idleTimeout__ == 0 ? 0 : millis () - __lastActive__ > __idleTimeout__ * 1000; }
+            inline bool idleTimeout () __attribute__((always_inline)) { return __idleTimeout__ == 0 ? 0 : (millis () - __lastActive__ > __idleTimeout__ * 1000); }
 
 
         protected:

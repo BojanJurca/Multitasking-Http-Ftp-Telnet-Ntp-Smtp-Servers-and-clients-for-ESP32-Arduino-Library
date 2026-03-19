@@ -7,7 +7,7 @@
 
       - Use dmesg telnet command to display messages in the dmesg message queue.
 
-    January 1, 2026, Bojan Jurca
+    March 12, 2026, Bojan Jurca
     
 */
 
@@ -17,7 +17,8 @@
 #ifndef __DMESG__
     #define __DMESG__
 
-    
+
+    #include <WiFi.h>
     #include <rom/rtc.h>
     #include <ostream.hpp>
     #include <Cstring.hpp>      // include LightweightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
@@ -358,7 +359,16 @@
     #endif
 
 
-    // create a singleton working instance
-    static inline dmesgQueue_t<DMESG_CIRCULAR_QUEUE_LENGTH> dmesgQueue;
+    // create a working singleton instance
+    inline dmesgQueue_t<DMESG_CIRCULAR_QUEUE_LENGTH>& __getDmesgQueueInstance__ () {
+        static dmesgQueue_t<DMESG_CIRCULAR_QUEUE_LENGTH> instance;
+        return instance;
+    }
+
+    #if __cplusplus >= 201703L
+        inline dmesgQueue_t<DMESG_CIRCULAR_QUEUE_LENGTH>& dmesgQueue = __getDmesgQueueInstance__ ();
+    #else
+        static dmesgQueue_t<DMESG_CIRCULAR_QUEUE_LENGTH>& dmesgQueue = __getDmesgQueueInstance__ ();
+    #endif
 
 #endif

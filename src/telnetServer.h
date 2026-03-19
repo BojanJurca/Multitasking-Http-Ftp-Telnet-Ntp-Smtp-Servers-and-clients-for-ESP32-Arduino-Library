@@ -534,16 +534,14 @@
                                                 String (*telnetCommandHandlerCallback) (int argc, char *argv [], telnetConnection_t *tcn) = NULL,       // telnetCommadHandlerCallback function provided by calling program
                                                 int serverPort = 23,                                                                                    // Telnet server port
                                                 bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,                                       // a reference to callback function that will be celled when new connection arrives 
-                                                bool runListenerInItsOwnTask = true                                                                     // a calling program may repeatedly call accept itself to save some memory tat listener task would use
-                                        );
+                                                bool runListenerInItsOwnTask = true);                                                                   // a calling program may repeatedly call accept itself to save some memory tat listener task would use
                         #endif
 
                                 telnetServer_t (Cstring<255> (*getUserHomeDirectory) (const Cstring<64>& userName, const Cstring<64>& password) = NULL,
                                                 String (*telnetCommandHandlerCallback) (int argc, char *argv [], telnetConnection_t *tcn) = NULL,       // telnetCommadHandlerCallback function provided by calling program
                                                 int serverPort = 23,                                                                                    // Telnet server port
                                                 bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,                                       // a reference to callback function that will be celled when new connection arrives 
-                                                bool runListenerInItsOwnTask = true                                                                     // a calling program may repeatedly call accept itself to save some memory tat listener task would use
-                                        );
+                                                bool runListenerInItsOwnTask = true);                                                                   // a calling program may repeatedly call accept itself to save some memory tat listener task would use
 
 
                                         tcpConnection_t *__createConnectionInstance__ (int connectionSocket, char *clientIP, char *serverIP) override;

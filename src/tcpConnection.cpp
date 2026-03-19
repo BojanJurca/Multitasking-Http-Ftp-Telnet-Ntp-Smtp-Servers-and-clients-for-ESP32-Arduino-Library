@@ -59,7 +59,10 @@
 #include <ostream.hpp>
 
 
-tcpConnection_t::tcpConnection_t () {}
+tcpConnection_t::tcpConnection_t () {
+    stillActive ();
+}
+
 tcpConnection_t::tcpConnection_t (int connectionSocket, char *clientIP, char *serverIP) {
     __connectionSocket__ = connectionSocket;
     strncpy (__clientIP__, clientIP, sizeof (__clientIP__) - 1);
@@ -74,6 +77,8 @@ tcpConnection_t::tcpConnection_t (int connectionSocket, char *clientIP, char *se
             close ();
         }
     xSemaphoreGive (getLwIpMutex ());
+
+    stillActive ();
 }
 
 tcpConnection_t::~tcpConnection_t () { close (); }
