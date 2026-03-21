@@ -29,11 +29,11 @@ void setup () {
 
 
   // 2️⃣ create FTP server instance that would use LittleFS with firewall callback function
-  ftpServer = new ftpServer_t (TSFS, NULL, 21, firewallCallback); // optional arguments:
-                                                                  //    Cstring<255> (*getUserHomeDirectory) (const Cstring<64>& userName, const Cstring<64>& password) = NULL
-                                                                  //    int serverPort = 21
-                                                                  //    bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL
-                                                                  //    bool runListenerInItsOwnTask = true
+  ftpServer = new (std::nothrow) ftpServer_t (TSFS, NULL, 21, firewallCallback);// optional arguments:
+                                                                                //    Cstring<255> (*getUserHomeDirectory) (const Cstring<64>& userName, const Cstring<64>& password) = NULL
+                                                                                //    int serverPort = 21
+                                                                                //    bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL
+                                                                                //    bool runListenerInItsOwnTask = true
 
   // check if FTP server instance is created && FTP server is running
   if (ftpServer && *ftpServer)
