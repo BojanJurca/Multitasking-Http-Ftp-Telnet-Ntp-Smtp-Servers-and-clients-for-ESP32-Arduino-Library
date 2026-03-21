@@ -144,7 +144,7 @@ Cstring<300> httpServer_t::webSocket_t::getHttpRequestHeaderField (const char *f
         p += strlen (fieldName) + 1; 
         while (*p == ' ') 
             p++; // p points to field value in HTTP request
-        cstring s; 
+        Cstring<300> s; 
         while (*p >= ' ') 
             s += *(p ++);
         return s;
@@ -158,7 +158,7 @@ Cstring<300> httpServer_t::webSocket_t::getHttpRequestCookie (const char *cookie
         p = strstr (p, cookieName); // find cookie name in HTTP header
         if (p && p != __httpRequestAndReplyBuffer__ && *(p - 1) == ' ' && *(p + strlen (cookieName)) == '=') {
             p += strlen (cookieName) + 1; while (*p == ' ' || *p == '=' ) p++; // p points to cookie value in HTTP request
-            cstring s; while (*p > ' ' && *p != ';') s += *(p ++);
+            Cstring<300> s; while (*p > ' ' && *p != ';') s += *(p ++);
             return s;
         }
     }
@@ -280,7 +280,7 @@ void httpServer_t::webSocket_t::__runConnectionTask__ () {
             // b. get additional memory for frame buffers
             __recvFrameBuffer__ = (byte *) malloc (2 * HTTP_WS_FRAME_MAX_SIZE);
             if (!__recvFrameBuffer__) {
-                cout << ( dmesgQueue << (const char *) "[httpConn] " << "out of memory" );
+                cout << ( dmesgQueue << "[httpConn] " << "out of memory" );
                 return;                                  
             }
             __sendFrameBuffer__ = __recvFrameBuffer__ + HTTP_WS_FRAME_MAX_SIZE;
@@ -427,7 +427,7 @@ void httpServer_t::webSocket_t::__runConnectionTask__ () {
         if (heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT) < 2 * HTTP_CONNECTION_STACK_SIZE) // there is not a memory block large enough evailable to start 2 new tasks that would handle the connection
             return;
 
-        // restore default values of member variables for the next HTTP request on this connection                              
+        // restore the default values of member variables for the next HTTP request on this connection                              
         __httpRequestAndReplyBuffer__ = "";
         __httpReplyStatus__ = "200 OK";
         __httpReplyHeader__ = "";
