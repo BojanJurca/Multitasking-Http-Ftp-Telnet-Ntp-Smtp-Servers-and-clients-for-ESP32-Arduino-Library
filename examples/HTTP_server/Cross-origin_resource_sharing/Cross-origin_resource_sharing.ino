@@ -1,0 +1,129 @@
+#include <WiFi.h>
+#include <httpServer.h>
+
+#define LED_BUILTIN 2
+
+// A callback function that would handle HTTP requests, it returns the content part of HTTP reply, the header will be added later by the HTTP server
+String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpConnection_t *hcn) {
+
+  // Must be reentrant !!!
+
+
+  #define httpRequestIs(X) (strstr(httpRequest,X)==httpRequest)
+
+
+  // 1️⃣ Respond to OPTIONS request with setting Access-Control-Allow-Origin and Access-Control-Allow-Methods header fields in HTTP reply
+  if (httpRequestIs ("OPTIONS ")) {
+    hcn->setHttpReplyHeaderField ("Access-Control-Allow-Origin", "*");  
+    hcn->setHttpReplyHeaderField ("Access-Control-Allow-Methods", "*");
+    return "OK"; // whatever
+  }
+
+
+  // REST API interface
+  if (httpRequestIs ("GET /led ")) {                                            // input (client -> server) = URL address
+    return digitalRead (LED_BUILTIN) ? "{\"led\":\"on\"}" : "{\"led\":\"off\"}";  // output (server -> client) = json
+  } else if (httpRequestIs ("PUT /led/on ")) {                                  // input (client -> server) = URL address
+    digitalWrite (LED_BUILTIN, 1);
+    return "{\"led\":\"on\"}";                                                    // output (server -> client) = json
+  } else if (httpRequestIs ("PUT /led/off ")) {                                 // input (client -> server) = URL address
+    digitalWrite (LED_BUILTIN, 0);
+    return "{\"led\":\"off\"}";                                                   // output (server -> client) = json
+  }
+
+
+  // 2️⃣ Use IP exlicit addresses in the main HTML page
+  if (httpRequestIs ("GET / ") || httpRequestIs ("GET /index.html ")) {
+    return  "<!DOCTYPE html>\n"
+            "<html lang='en'>\n"
+            "   <head>\n"
+            "      <meta charset='UTF-8'>\n"
+            "      <title>Cross Origin Resource Sharing</title>\n"
+            "   </head>\n"
+            "   <body>\n"
+            "      <h1>Cross Origin Resource Sharing</h1>\n"
+            "		   <br><br>\n"
+            "      <p>You can save this page to your comupter, open it from there and it will still work as expected.</p>"
+            "		   <br><br>\n"            
+            "		   Led: <input type='checkbox' disabled id='ledSwitch' onClick='turnLed (this.checked)'>\n"
+            "   </body>\n"
+            "   <script type='text/javascript'>\n"
+            "\n"
+            "     // respond to switch\n"
+            "		  function turnLed (switchIsOn) {\n"
+            "       fetch (switchIsOn ? 'http://" + WiFi.localIP ().toString () + "/led/on' : 'http://" + WiFi.localIP ().toString () + "/led/off', {\n"
+            "         method: 'PUT'\n"
+            "       })\n"
+            "       .then (response => response.json ())\n"
+            "       .then (data => {\n"
+            "         const obj = document.getElementById ('ledSwitch');\n"
+            "         obj.checked = (data.led === 'on');\n"
+            "       })\n"
+            "       .catch (err => {\n"
+            "         console.error ('Request failed:', err);\n"
+            "       });\n"
+            "     }\n"
+            "\n"
+            "     // read current led state when the page loads\n"
+            "     fetch ('http://" + WiFi.localIP ().toString () + "/led', {\n"
+            "       method: 'GET'\n"
+            "     })\n"
+            "     .then (response => response.json ())\n"
+            "     .then (data => {\n"
+            "       const obj = document.getElementById ('ledSwitch');\n"
+            "       obj.checked = (data.led === 'on');\n"
+            "       obj.disabled = false;\n"            
+            "     })\n"
+            "     .catch (err => {\n"
+            "       console.error ('Request failed:', err);\n"
+            "     });\n"            
+            "\n"
+            "   </script>\n"
+            "</html>";
+  }
+
+
+  // Let the httpServer handle the request itself
+  return "";
+}
+
+httpServer_t *httpServer = NULL;
+
+void setup () {
+  Serial.begin (115200);
+
+  // Start WiFi connection
+  WiFi.begin ("YOUR_SSID", "YOUR_PASSWORD");
+
+  // Create HTTP server instance passing it callback function that will handle the HTTP requests 
+  httpServer = new (std::nothrow) httpServer_t (httpRequestHandlerCallback);  // optional arguments:
+                                                                              // threadSafeFS::FS& fileSystem,
+                                                                              // void (*wsRequestHandlerCallback) (const char *httpRequest, httpServer_t::webSocket_t *webSck) = NULL,
+                                                                              // int serverPort = 80,
+                                                                              // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
+                                                                              // bool runListenerInItsOwnTask = true
+
+
+  // Check if HTTP server instance is created && HTTP server is running
+  if (httpServer && *httpServer)
+    Serial.println ("HTTP server started");
+  else
+    Serial.println ("HTTP server did not start");
+
+  // Use web browser to connect to ESP32's IP address
+  while (WiFi.localIP () == IPAddress (0, 0, 0, 0)) { // wait until we get IP from router's DHCP
+      delay (1000); 
+      Serial.println ("   ."); 
+  } 
+  Serial.print ("Got IP addess: "); Serial.println (WiFi.localIP ());
+
+
+  pinMode (LED_BUILTIN, INPUT | OUTPUT);
+
+
+  // ...
+}
+
+void loop () {
+
+}
