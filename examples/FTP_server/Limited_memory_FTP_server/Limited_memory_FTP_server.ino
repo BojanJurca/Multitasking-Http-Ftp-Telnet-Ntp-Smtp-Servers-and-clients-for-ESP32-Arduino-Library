@@ -19,11 +19,11 @@ void setup () {
   // 1️⃣ Create FTP server instance without listener's task (runListenerInItsOwnTask = false)
   // FTP server's listener would have to host in the loop task in this case, 
   // not having a seperate listening task would save 3 KB of memory
-  ftpServer = new ftpServer_t (TSFS, NULL, 21, NULL, false);  // optional arguments:
-                                                              //    Cstring<255> (*getUserHomeDirectory) (const Cstring<64>& userName, const Cstring<64>& password) = NULL
-                                                              //    int serverPort = 21
-                                                              //    bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL
-                                                              //    bool runListenerInItsOwnTask = true
+  ftpServer = new (std::nothrow) ftpServer_t (TSFS, NULL, 21, NULL, false); // optional arguments:
+																			                                      //    Cstring<255> (*getUserHomeDirectory) (const Cstring<64>& userName, const Cstring<64>& password) = NULL
+																			                                      //    int serverPort = 21
+  																	                                        //    bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL
+																			                                      //    bool runListenerInItsOwnTask = true
 
   // check if FTP server instance is created && FTP server is running
   if (ftpServer && *ftpServer)
