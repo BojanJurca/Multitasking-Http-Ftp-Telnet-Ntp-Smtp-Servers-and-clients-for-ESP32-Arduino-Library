@@ -84,8 +84,9 @@ void setup () {
 
   
   // 5️⃣ Create HTTP server instance passing it callback function that will handle the HTTP requests 
-  httpServer = new (std::nothrow) httpServer_t (TSFS);  // optional arguments:
-                                                        // threadSafeFS::FS& fileSystem,
+                                                        // optional arguments:
+  httpServer = new (std::nothrow) httpServer_t (TSFS);  // threadSafeFS::FS& fileSystem,
+                                                        // String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpConnection_t *hcn) = NULL,
                                                         // void (*wsRequestHandlerCallback) (const char *httpRequest, httpServer_t::webSocket_t *webSck) = NULL,
                                                         // int serverPort = 80,
                                                         // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
