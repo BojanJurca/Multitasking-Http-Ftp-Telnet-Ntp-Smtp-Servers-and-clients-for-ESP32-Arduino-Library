@@ -36,11 +36,13 @@ void setup () {
   // 1️⃣ Create HTTP server instance without listener's task (runListenerInItsOwnTask = false)
   // HTTP server's listener would have to host in the loop task in this case, 
   // not having a seperate listening task would save 3 KB of memory
-  httpServer = new (std::nothrow) httpServer_t (httpRequestHandlerCallback, 
-                                                NULL,   // void (*wsRequestHandlerCallback) (const char *httpRequest, httpServer_t::webSocket_t *webSck) = NULL,
-                                                80,     // int serverPort = 80,
-                                                NULL,   // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
-                                                false); // bool runListenerInItsOwnTask = true
+                                                                            // optional arguments:
+                                                                            // threadSafeFS::FS& fileSystem,
+  httpServer = new (std::nothrow) httpServer_t (httpRequestHandlerCallback, // String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpConnection_t *hcn) = NULL, 
+                                                NULL,                       // void (*wsRequestHandlerCallback) (const char *httpRequest, httpServer_t::webSocket_t *webSck) = NULL,
+                                                80,                         // int serverPort = 80,
+                                                NULL,                       // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
+                                                false);                     // bool runListenerInItsOwnTask = true
                                                                               
 
   // check if FTP server instance is created && FTP server is running
