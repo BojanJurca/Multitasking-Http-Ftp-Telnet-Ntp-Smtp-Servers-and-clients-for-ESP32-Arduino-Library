@@ -21,8 +21,8 @@ String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpCo
 
 
     // 2️⃣ Set the cookie that will be sent to the browser through HTTP reply
-    hcn->setHttpReplyCookie ("refreshCounter", refreshCounter, time (NULL) + 60);  // cookie is valid 1 minute
-
+    hcn->setHttpReplyCookie ("refreshCounter", refreshCounter, time (NULL) + 60); // cookie is valid 1 minute
+                                                                                  // if time is set to 0 the cookie doesn't expire    
 
     // 3️⃣ Return HTML content that will be sent to the browser through HTTP reply
     String httpReply = "<!DOCTYPE html>\n"
