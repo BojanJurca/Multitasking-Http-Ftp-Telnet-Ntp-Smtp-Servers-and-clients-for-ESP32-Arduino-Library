@@ -63,13 +63,14 @@ void setup () {
   WiFi.begin ("YOUR_SSID", "YOUR_PASSWORD");
 
   // Create HTTP server instance passing it callback function that will handle the HTTP requests 
-  httpServer = new (std::nothrow) httpServer_t (httpRequestHandlerCallback);  // optional arguments:
-                                                                              // threadSafeFS::FS& fileSystem,
-                                                                              // void (*wsRequestHandlerCallback) (const char *httpRequest, httpServer_t::webSocket_t *webSck) = NULL,
-                                                                              // int serverPort = 80,
-                                                                              // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
-                                                                              // bool runListenerInItsOwnTask = true
-
+                                                                            // optional arguments:
+                                                                            // threadSafeFS::FS& fileSystem,
+  httpServer = new (std::nothrow) httpServer_t (httpRequestHandlerCallback);// String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpConnection_t *hcn) = NULL,
+                                                                            // void (*wsRequestHandlerCallback) (const char *httpRequest, httpServer_t::webSocket_t *webSck) = NULL,
+                                                                            // int serverPort = 80,
+                                                                            // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
+                                                                            // bool runListenerInItsOwnTask = true
+  
   // Check if HTTP server instance is created && HTTP server is running
   if (httpServer && *httpServer)
     Serial.println ("HTTP server started");
