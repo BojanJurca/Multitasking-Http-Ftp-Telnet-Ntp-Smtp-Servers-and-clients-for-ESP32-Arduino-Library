@@ -113,7 +113,7 @@
 
     // ----- TUNING PARAMETERS -----
 
-    #define HTTP_CONNECTION_STACK_SIZE (8 * 1024)
+    #define HTTP_CONNECTION_STACK_SIZE (6 * 1024)
     #define HTTP_BUFFER_SIZE 1440 // optimal TCP payload: MTU = 1500 bytes, TCP header = 20 bytes, IPv6 header = 40 bytes: 1500 - 20 - 40 = 1440
     #define HTTP_CONNECTION_TIME_OUT 15
     #define HTTP_REPLY_STATUS_MAX_LENGTH 32
@@ -129,12 +129,6 @@
     #define reply507 "HTTP/1.0 507 Insuficient storage\r\nConnection: close\r\nContent-Length:41\r\n\r\nThe buffers of HTTP server are too small."
 
     // ----- sha256 declaration -----
-
-    #ifndef __SHA256__
-        #define __SHA256__
-            bool sha256(char *buffer, size_t bufferSize, const char *clearText);
-    #endif
-
 
     class httpServer_t : public tcpServer_t {
 
@@ -180,7 +174,7 @@
                         READING_MEDIUM_HEADER = 2,
                         READING_PAYLOAD = 3,
                         FULL = 4                                    // frame is full and waiting to be read by the calling program
-                    }; 
+                    } __recvFrameState__ = EMPTY; 
 
                     // Internal helpers (implemented in .cpp)
                     bool __sendFrame__ (byte *buffer, size_t bufferSize, byte frameType);
@@ -189,9 +183,6 @@
                     #ifdef __THREAD_SAFE_FS__
                         bool __replyWithFileContent__ ();
                     #endif
-
-                    // WebSocket  masking
-                    bool __sha256__ (char *buffer, size_t bufferSize, const char *clearText);
 
                 public:
                     webSocket_t (void *FileSystem,

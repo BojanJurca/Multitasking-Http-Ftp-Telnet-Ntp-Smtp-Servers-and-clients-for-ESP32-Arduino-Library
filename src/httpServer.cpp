@@ -99,10 +99,6 @@
 #include "httpServer.h"
 
 
-
-
-
-
 // ----- httpServer_t::webSocket_t implementation -----
 
 // static member initialization
@@ -196,35 +192,180 @@ void httpServer_t::webSocket_t::setHttpReplyCookie (Cstring<300> cookieName, Cst
 }
 
 int httpServer_t::webSocket_t::recvBlock (void *buf, size_t len) {
-    // TODO: implement
-    return -1;
+    while (true) {
+        switch (peek ()) {
+            case 0:                 break;  // not read yet, continue waiting
+            case BINARY_FRAME_TYPE: __recvFrameState__ = EMPTY; 
+                                    memcpy (buf, __payload__, min (__payloadLength__, (int) len));
+                                    return __payloadLength__; 
+            default:                return -1; // error, wrong frame type, ...
+        }
+        delay (1);
+    }
+    return 0; // never executes
 }
 
 bool httpServer_t::webSocket_t::sendBlock (void *buf, size_t len) {
-    // TODO: implement
-    return false;
+    return __sendFrame__ ((byte *) buf, len, BINARY_FRAME_TYPE);
 }
 
 bool httpServer_t::webSocket_t::recvString (char *buf, size_t len) {
-    // TODO: implement
-    return false;
+    while (true) {
+        switch (peek ()) {
+            case 0:                 break;  // not read yet, continue waiting
+            case STRING_FRAME_TYPE: __recvFrameState__ = EMPTY;
+                                    len = min (__payloadLength__, (int) len - 1);
+                                    memcpy (buf, __payload__, len);
+                                    buf [len] = 0;
+                                    return true;
+            default:                return false; // error, wrong frame type, ...
+        }
+        delay (1);
+    }
+    return 0; // ever executes
 }
 
 bool httpServer_t::webSocket_t::sendString (const char *buf) {
-    // TODO: implement
-    return false;
+    return __sendFrame__ ((byte *) buf, strlen (buf), STRING_FRAME_TYPE);
 }
 
+// returns the type of the frame received or 0 if the frame has not arrived (yet completely), -1 in case of error
 int httpServer_t::webSocket_t::peek () {
-    // TODO: implement
-    return 0;
+    switch (__recvFrameState__) {
+        case EMPTY:                     {
+                                            // prepare data structure for the first read operation
+                                            __bytesReceived__ = 0;
+                                            __recvFrameState__ = READING_SHORT_HEADER;
+                                            [[fallthrough]]; // continue reading immediately
+                                        }
+        case READING_SHORT_HEADER:      { 
+                                            // check socket if data is pending to be read
+                                            switch (tcpConnection_t::peek (__recvFrameBuffer__, 6)) {
+                                                case -1:    // error
+                                                            return -1;
+                                                case 0:     // no data is available
+                                                            return 0;
+                                                default:    break; // continue
+                                            }
+                                            // read 6 bytes of short header
+                                            tcpConnection_t::recvBlock (__recvFrameBuffer__ + __bytesReceived__, 6 - __bytesReceived__); // can't fail now
+
+                                            // check if this frame type is supported
+                                            if (!(__recvFrameBuffer__ [0] & 0b10000000)) { // check if fin bit is set
+                                                cout << ( dmesgQueue << "[webSocket] " << "frame type not supported" );
+                                                return -1;
+                                            }
+
+                                            // read frame type
+                                            byte frameType = __recvFrameBuffer__ [0] & 0b00001111; // check opcode, 1 = text, 2 = binary, 8 = close, ...
+                                            if (frameType == CLOSE_FRAME_TYPE)
+                                                return CLOSE_FRAME_TYPE;
+
+                                            if (frameType != STRING_FRAME_TYPE && frameType != BINARY_FRAME_TYPE) {
+                                                cout << ( dmesgQueue << "[webSocket] frame type not supported" );
+                                                return -1;
+                                            } 
+                                            // NOTE: after this point only TEXT and BINRY frames are processed!
+                                            
+                                            // check payload length that also determines frame type
+                                            __payloadLength__ = __recvFrameBuffer__ [1] & 0b01111111; // byte 1: mask bit is always 1 for packets that come from browsers, cut it off
+                                            if (__payloadLength__ <= 125) { // short payload
+                                                __frameMask__ = __recvFrameBuffer__ + 2; // bytes 2, 3, 4, 5
+                                                __payload__  = __recvFrameBuffer__ + 6; // skip 6 bytes of header, note that __recvFrameBuffer__ is large enough
+                                                // continue with reading payload immediatelly
+                                                __recvFrameState__ = READING_PAYLOAD;
+                                                goto readingPayload;
+                                            } else if (__payloadLength__ == 126) { // 126 means medium payload, read additional 2 bytes of header
+                                                __recvFrameState__ = READING_MEDIUM_HEADER;
+                                                // continue reading immediately
+                                            } else { // 127 means large data block - not supported since ESP32 doesn't have enough memory
+                                                cout << ( dmesgQueue << "[webSocket] frame type not supported" );
+                                                return -1;
+                                            }
+                                        }
+                                        [[fallthrough]];
+            case READING_MEDIUM_HEADER: {
+                                            // we don't have to repeat the checking already done in short header case, just read additional 2 bytes and update the data structure
+                                            // read additional 2 bytes (8 altogether) bytes of medium header
+                                            switch (tcpConnection_t::peek (__recvFrameBuffer__ + 6, 2)) {
+                                                case -1:    // error
+                                                            return -1;
+                                                case 0:     // no data is available
+                                                            return 0;
+                                                default:    break; // continue
+                                            }
+                                            // read additional 2 bytes of header
+                                            tcpConnection_t::recvBlock (__recvFrameBuffer__ + __bytesReceived__, 8 - __bytesReceived__); // can't fail now
+
+                                            // correct internal structure for reading into extended buffer and continue immediately
+                                            __payloadLength__ = __recvFrameBuffer__ [2] << 8 | __recvFrameBuffer__ [3];
+                                            __frameMask__ = __recvFrameBuffer__ + 4; // bytes 4, 5, 6, 7
+                                            __payload__ = __recvFrameBuffer__ + 8; // skip 8 bytes of header, check if __readFrame is large enough:
+                                            if (__payloadLength__ > HTTP_WS_FRAME_MAX_SIZE - 8) {
+                                                cout << ( dmesgQueue << "[webSocket] buffer too small" );
+                                                Serial.println ("[webSocket] buffer too small");
+                                                return -1;
+                                            }
+                                            __recvFrameState__ = READING_PAYLOAD;
+                                            [[fallthrough]]; // continue with reading payload immediatelly
+                                        }
+            case READING_PAYLOAD:
+        readingPayload:
+                                        {
+                                            __bytesReceived__ = 0; // reset the counter, count only payload from now on
+                                            // read all the payload bytes if possible
+                                            int i = tcpConnection_t::recv (__payload__ + __bytesReceived__, __payloadLength__ - __bytesReceived__);
+                                            if (i <= 0)
+                                                return -1;
+                                            __bytesReceived__ += i;
+                                            if (__bytesReceived__ != __payloadLength__) 
+                                                return 0;
+
+                                            // all is read, decode (unmask) the data
+                                            for (int i = 0; i < __payloadLength__; i++)
+                                                __payload__ [i] ^= __frameMask__ [i % 4];
+                                            // conclude payload with 0 in case this is going to be interpreted as text - like C string
+                                            __payload__ [__payloadLength__] = 0;
+                                            __recvFrameState__ = FULL;     // stop reading until buffer is read by the calling program
+                                            return __recvFrameBuffer__ [0] & 0b00001111; // check opcode, 1 = text, 2 = binary, 8 = close, ...
+                                        }
+
+            case FULL:                  // return immediately, there is no space left to read additional incoming data
+                                        return __recvFrameBuffer__ [0] & 0b00001111; // check opcode, 1 = text, 2 = binary, 8 = close, ...
+        }
+        // for every case that has not been handeled earlier return not available
+        return 0;
 }
 
 bool httpServer_t::webSocket_t::__sendFrame__ (byte *buffer, size_t bufferSize, byte frameType) {
-    // TODO: implement
-    return false;
+    if (bufferSize > 0xFFFF) { // this size fits in large frame size - not supported here
+        cout << ( dmesgQueue << "[webSocket] " << "large frame size is not supported" );
+        return false;
+    } 
+    // byte *frame = NULL;
+    if (bufferSize > HTTP_WS_FRAME_MAX_SIZE - 4) { // 4 bytes are needed for header
+        cout << ( dmesgQueue << "[webSocket] " << "frame sizes > " << HTTP_WS_FRAME_MAX_SIZE - 4 << " are not supported" );
+        return false;                         
+    }           
+    int sendFrameSize;
+    if (bufferSize > 125) { // medium frame size
+        // frame type
+        __sendFrameBuffer__ [0] = 0b10000000 | frameType; // set FIN bit and frame data type
+        __sendFrameBuffer__ [1] = 126; // medium frame size, without masking (we won't do the masking, we won't set the MASK bit)
+        __sendFrameBuffer__ [2] = bufferSize >> 8; // / 256;
+        __sendFrameBuffer__ [3] = bufferSize; // % 256;
+        memcpy (__sendFrameBuffer__ + 4, buffer, bufferSize);  
+        sendFrameSize = bufferSize + 4;
+    } else { // small frame size
+        __sendFrameBuffer__ [0] = 0b10000000 | frameType; // set FIN bit and frame data type
+        __sendFrameBuffer__ [1] = bufferSize; // small frame size, without masking (we won't do the masking, we won't set the MASK bit)
+        if (bufferSize) memcpy (__sendFrameBuffer__ + 2, buffer, bufferSize);  
+        sendFrameSize = bufferSize + 2;
+    }
+    if (tcpConnection_t::sendBlock (__sendFrameBuffer__, sendFrameSize) != sendFrameSize)
+        return false;
+    return true;
 }
-
 
 char* httpServer_t::webSocket_t::stristr (const char *haystack, const char *needle) { 
     if (!haystack || !needle) return NULL; // nonsense
