@@ -49,7 +49,9 @@ void setup () {
 
 
   // 2️⃣ create HTTP server instance with firewall callback function
-  httpServer = new (std::nothrow) httpServer_t (httpRequestHandlerCallback, // optional arguments:
+                                                                            // optional arguments:
+                                                                            // threadSafeFS::FS& fileSystem,
+  httpServer = new (std::nothrow) httpServer_t (httpRequestHandlerCallback, // String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpConnection_t *hcn) = NULL,
                                                 NULL,                       // void (*wsRequestHandlerCallback) (const char *httpRequest, httpServer_t::webSocket_t *webSck) = NULL,
                                                 80,                         // int serverPort = 80,
                                                 firewallCallback);          // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
