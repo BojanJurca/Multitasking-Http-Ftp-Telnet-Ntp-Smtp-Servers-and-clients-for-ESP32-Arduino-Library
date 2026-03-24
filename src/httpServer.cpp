@@ -57,12 +57,6 @@
                   directive. When the browser requests several pages from server it can do it over the same TCP connection in short time period 
                   (one after another) reducing the need of establishing and terminating TCP connections several times.   
 
-     - "session" applies to user interaction between login and logout
-
-                  Taking account the web technology one web session tipically consists of many TCP connections. Cookies are involved
-                  in order to preserve the state of the web session since HTTP requests and replies themselves are stateless. A list of 
-                  valid "session tokens" is keept on the web server so web server can check the session validity.
-
       - "buffer size" is the number of bytes that can be placed in a buffer. 
       
                   In case of C 0-terminated strings the terminating 0 character should be included in "buffer size".
@@ -176,7 +170,7 @@ void httpServer_t::webSocket_t::setHttpReplyCookie (Cstring<300> cookieName, Cst
     char e [50] = "";
     if (expires) {
         if (expires < 1600000000) { // 1600000000 ~2020
-            cout << ( dmesgQueue << "[httpConn] " << "can't set cookie expiration time for the time has not been set yet" );
+            cout << ( dmesgQueue << "[httpConn] " "can't set cookie expiration time for the time has not been set yet" );
         }
         struct tm st;
         gmtime_r (&expires, &st);
@@ -252,7 +246,7 @@ int httpServer_t::webSocket_t::peek () {
 
                                             // check if this frame type is supported
                                             if (!(__recvFrameBuffer__ [0] & 0b10000000)) { // check if fin bit is set
-                                                cout << ( dmesgQueue << "[webSocket] " << "frame type not supported" );
+                                                cout << ( dmesgQueue << "[webSocket] " "frame type not supported" );
                                                 return -1;
                                             }
 
@@ -262,7 +256,7 @@ int httpServer_t::webSocket_t::peek () {
                                                 return CLOSE_FRAME_TYPE;
 
                                             if (frameType != STRING_FRAME_TYPE && frameType != BINARY_FRAME_TYPE) {
-                                                cout << ( dmesgQueue << "[webSocket] frame type not supported" );
+                                                cout << ( dmesgQueue << "[webSocket] " "frame type not supported" );
                                                 return -1;
                                             } 
                                             // NOTE: after this point only TEXT and BINRY frames are processed!
@@ -279,7 +273,7 @@ int httpServer_t::webSocket_t::peek () {
                                                 __recvFrameState__ = READING_MEDIUM_HEADER;
                                                 // continue reading immediately
                                             } else { // 127 means large data block - not supported since ESP32 doesn't have enough memory
-                                                cout << ( dmesgQueue << "[webSocket] frame type not supported" );
+                                                cout << ( dmesgQueue << "[webSocket] " "frame type not supported" );
                                                 return -1;
                                             }
                                         }
@@ -303,7 +297,6 @@ int httpServer_t::webSocket_t::peek () {
                                             __payload__ = __recvFrameBuffer__ + 8; // skip 8 bytes of header, check if __readFrame is large enough:
                                             if (__payloadLength__ > HTTP_WS_FRAME_MAX_SIZE - 8) {
                                                 cout << ( dmesgQueue << "[webSocket] buffer too small" );
-                                                Serial.println ("[webSocket] buffer too small");
                                                 return -1;
                                             }
                                             __recvFrameState__ = READING_PAYLOAD;
@@ -339,12 +332,12 @@ int httpServer_t::webSocket_t::peek () {
 
 bool httpServer_t::webSocket_t::__sendFrame__ (byte *buffer, size_t bufferSize, byte frameType) {
     if (bufferSize > 0xFFFF) { // this size fits in large frame size - not supported here
-        cout << ( dmesgQueue << "[webSocket] " << "large frame size is not supported" );
+        cout << ( dmesgQueue << "[webSocket] " "large frame size is not supported" );
         return false;
     } 
     // byte *frame = NULL;
     if (bufferSize > HTTP_WS_FRAME_MAX_SIZE - 4) { // 4 bytes are needed for header
-        cout << ( dmesgQueue << "[webSocket] " << "frame sizes > " << HTTP_WS_FRAME_MAX_SIZE - 4 << " are not supported" );
+        cout << ( dmesgQueue << "[webSocket] " "frame sizes > " << HTTP_WS_FRAME_MAX_SIZE - 4 << " are not supported" );
         return false;                         
     }           
     int sendFrameSize;
@@ -403,7 +396,7 @@ void httpServer_t::webSocket_t::__runConnectionTask__ () {
             case 0:                 // connection closed by peer
                                     return;
             case HTTP_BUFFER_SIZE:  // buffer full but end of request did not arrive
-                                    cout << ( dmesgQueue << "[httpConn] " << "buffer too small for " << __httpRequestAndReplyBuffer__ );
+                                    cout << ( dmesgQueue << "[httpConn] " "buffer too small for " << __httpRequestAndReplyBuffer__ );
                                     tcpConnection_t::sendString (reply507);
                                     return;
             default:                break; // continue
@@ -421,7 +414,7 @@ void httpServer_t::webSocket_t::__runConnectionTask__ () {
             // b. get additional memory for frame buffers
             __recvFrameBuffer__ = (byte *) malloc (2 * HTTP_WS_FRAME_MAX_SIZE);
             if (!__recvFrameBuffer__) {
-                cout << ( dmesgQueue << "[httpConn] " << "out of memory" );
+                cout << ( dmesgQueue << "[httpConn] " "out of memory" );
                 return;                                  
             }
             __sendFrameBuffer__ = __recvFrameBuffer__ + HTTP_WS_FRAME_MAX_SIZE;
@@ -453,11 +446,11 @@ void httpServer_t::webSocket_t::__runConnectionTask__ () {
                         if (tcpConnection_t::sendString (buffer) <= 0)
                             return;
                     } else { // |key| > 24
-                        cout << ( dmesgQueue << "[webSocket] WsRequest key too long" );
+                        cout << ( dmesgQueue << "[webSocket] " "WsRequest key too long" );
                         return;
                     }
                 } else { // j == NULL
-                    cout << ( dmesgQueue << "[webSocket] WsRequest without key" );
+                    cout << ( dmesgQueue << "[webSocket] " "WsRequest without key" );
                     return;
                 }
 
@@ -465,12 +458,12 @@ void httpServer_t::webSocket_t::__runConnectionTask__ () {
                 if (__wsRequestHandlerCallback__) {
                     __wsRequestHandlerCallback__ (__httpRequestAndReplyBuffer__, this);
                 } else {
-                    cout << ( dmesgQueue << "[httpConn] " << "wsRequestHandlerCallback was not provided to handle WebSocket" );
+                    cout << ( dmesgQueue << "[httpConn] " "wsRequestHandlerCallback was not provided to handle WebSocket" );
                     return;
                 }
 
             } else { // i == NULL
-                cout << ( dmesgQueue << "[webSocket] WsRequest without key" );
+                cout << ( dmesgQueue << "[webSocket] " "WsRequest without key" );
             }
             return;
         }
@@ -480,7 +473,7 @@ void httpServer_t::webSocket_t::__runConnectionTask__ () {
         if (__httpRequestHandlerCallback__) {
             httpReplyContent = __httpRequestHandlerCallback__ (__httpRequestAndReplyBuffer__, (httpConnection_t *) this);
             if (!httpReplyContent) { // out of memory
-                cout << ( dmesgQueue << "[httpConn] " << "out of memory" );
+                cout << ( dmesgQueue << "[httpConn] " "out of memory" );
                 tcpConnection_t::sendString (reply503);
                 return;
             }
@@ -500,7 +493,7 @@ void httpServer_t::webSocket_t::__runConnectionTask__ () {
                 }
             }
             if (__httpReplyHeader__.errorFlags ()) {
-                cout << ( dmesgQueue << "[httpConn] " << "header reply buffer too small" );
+                cout << ( dmesgQueue << "[httpConn] " "header reply buffer too small" );
                 tcpConnection_t::sendString (reply507);
                 return;
             }
@@ -558,7 +551,7 @@ void httpServer_t::webSocket_t::__runConnectionTask__ () {
         // check how much stack did we use
         UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark (NULL);
         if (__lastHighWaterMark__ > highWaterMark) {
-            cout << ( dmesgQueue << "[httpConn] " << "new HTTP connection stack high water mark reached: " << highWaterMark << " not used bytes" );
+            cout << ( dmesgQueue << "[httpConn] " "new HTTP connection stack high water mark reached: " << highWaterMark << " not used bytes" );
             __lastHighWaterMark__ = highWaterMark;
         }
 
@@ -601,7 +594,7 @@ tcpConnection_t *httpServer_t::__createConnectionInstance__ (int connectionSocke
 
     webSocket_t *connection = new (std::nothrow) webSocket_t (__fileSystem__, __replyWithFileContentPtr__, connectionSocket, clientIP, serverIP, __httpRequestHandlerCallback__, __wsRequestHandlerCallback__);
     if (!connection) {
-        cout << ( dmesgQueue << "[httpServer] " << "can't create connection instance, out of memory" );
+        cout << ( dmesgQueue << "[httpServer] " "can't create connection instance, out of memory" );
         send (connectionSocket, reply503, strlen (reply503), 0);
         close (connectionSocket); // normally tcpConnection would do this but if it is not created we have to do it here since the connection was not created
         return NULL;
@@ -629,7 +622,7 @@ tcpConnection_t *httpServer_t::__createConnectionInstance__ (int connectionSocke
                                                         }
                                 , "httpConn", HTTP_CONNECTION_STACK_SIZE, connection, tskNORMAL_PRIORITY, NULL)) {
 
-        cout << ( dmesgQueue << "[httpServer] " << "can't create connection task, out of memory" );
+        cout << ( dmesgQueue << "[httpServer] " "can't create connection task, out of memory" );
         send (connectionSocket, reply503, strlen (reply503), 0);
         delete (connection); // normally tcpConnection would do this but if it is not running we have to do it here
         return NULL;

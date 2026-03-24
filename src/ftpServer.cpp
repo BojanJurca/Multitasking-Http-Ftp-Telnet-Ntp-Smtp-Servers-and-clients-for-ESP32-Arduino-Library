@@ -269,7 +269,7 @@ Cstring<300> ftpServer_t::ftpControlConnection_t::__PASS__ (char *password) {
         cout << ( dmesgQueue << "[ftpCtrlConn] " << __userName__ << " logged in" );
         return Cstring<300> ("230 logged on, your home directory is \"") + s + "\"\r\n";
     } else {
-        cout << ( dmesgQueue << "[ftpCtrlConn] login denyed for " << __userName__ );
+        cout << ( dmesgQueue << "[ftpCtrlConn] " "login denyed for " << __userName__ );
         delay (100);
         return "530 login denyed\r\n";
     }

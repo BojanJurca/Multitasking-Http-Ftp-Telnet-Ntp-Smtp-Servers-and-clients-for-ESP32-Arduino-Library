@@ -660,7 +660,7 @@
                                                                         if (c == __CHARSET__) {
                                                                                 int i = sendString ((char *) IAC SB CHARSET REQUEST "UTF-8" IAC SE);
                                                                                 if (i <= 0) {
-                                                                                        cout << ( dmesgQueue << "[telnetConn] " << "send error: " << errno << " " << strerror (errno) );
+                                                                                        cout << ( dmesgQueue << "[telnetConn] " "send error: " << errno << " " << strerror (errno) );
                                                                                 }
                                                                         }
                                                         default:        // ignore
@@ -792,7 +792,7 @@
                         // check user name and password and get user's home directory, prepare Telnet session variables
                         __homeDirectory__ = __getUserHomeDirectory__ (__userName__, password);
                         if (__homeDirectory__ == "") {
-                                cout << (dmesgQueue << "[telnetConn] " << "login denyed for " << __userName__ );
+                                cout << (dmesgQueue << "[telnetConn] " "login denyed for " << __userName__ );
                                 sendString ("\r\nUsername and/or password incorrect");
                                 delay (100);
                                 return;
@@ -904,7 +904,7 @@
                         // check how much stack did we use
                         UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark (NULL);
                         if (__lastHighWaterMark__ > highWaterMark) {
-                                cout << (dmesgQueue << "[telnetConn] " << "new Telnet connection stack high water mark reached: " << highWaterMark << " not used bytes" );
+                                cout << (dmesgQueue << "[telnetConn] " "new Telnet connection stack high water mark reached: " << highWaterMark << " not used bytes" );
                                 __lastHighWaterMark__ = highWaterMark;
                         }
 
@@ -1245,7 +1245,7 @@
                 #endif
 
                 if (!connection) {
-                        cout << ( dmesgQueue << "[telnetServer] " << "can't create connection instance, out of memory" );
+                        cout << ( dmesgQueue << "[telnetServer] " "can't create connection instance, out of memory" );
                         char s [128];
                         sprintf (s, telnetServiceUnavailableReply, esp_get_free_heap_size (), heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT));
                         send (connectionSocket, s, strlen (s), 0);
@@ -1272,7 +1272,7 @@
                                                                         vTaskDelete (NULL); // it is connection's responsibility to close itself
                                                                    }
                                                 , "telnetConn", TELNET_CONNECTION_STACK_SIZE, connection, tskNORMAL_PRIORITY, NULL)) {
-                        cout << ( dmesgQueue << "[telnetServer] " << "can't create connection task, out of memory" );
+                        cout << ( dmesgQueue << "[telnetServer] " "can't create connection task, out of memory" );
 
                         char s [128];
                         sprintf (s, telnetServiceUnavailableReply, esp_get_free_heap_size (), heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT));

@@ -98,7 +98,7 @@ int tcpConnection_t::recv (void *buf, size_t len) {
                 // case 119:   // EALREADY (all the sockets are non-blocking)
                 case  11:   // EAGAIN or EWOULDBLOCK
                             if (idleTimeout ()) {
-                                cout << ( dmesgQueue << "[tcpConn] idle timeout" );
+                                // cout << ( dmesgQueue << "[tcpConn] idle timeout" ); // do not log, this is a normal end of connection in httpServer
                                 return -1;
                             } else {
                                 // continue waiting
@@ -161,7 +161,7 @@ int tcpConnection_t::recvString (char *buf, size_t len, const char *endingString
                 // case 119:   // EALREADY (all the sockets are non-blocking)
                 case  11:   // EAGAIN or EWOULDBLOCK
                             if (idleTimeout ()) {
-                                cout << ( dmesgQueue << "[tcpConn] " << "timeout" );
+                                // cout << ( dmesgQueue << "[tcpConn] " << "timeout" ); // do not log, this is a normal end of connection in httpServer
                                 return -1;
                             } else {
                                 // continue waiting
@@ -209,7 +209,7 @@ int tcpConnection_t::peek (void *buf, size_t len) {
             // case 119:   // EALREADY (all the sockets are non-blocking)
             case  11:   // EAGAIN or EWOULDBLOCK
                         if (idleTimeout ()) {
-                            cout << ( dmesgQueue << "[tcpConn] " << "timeout" );
+                            // cout << ( dmesgQueue << "[tcpConn] " << "timeout" ); // do not log, this is a normal end of connection in httpServer
                             return -1;
                         } else {
                             return 0;
@@ -249,7 +249,7 @@ int tcpConnection_t::sendBlock (void *buf, size_t len) {
                 // case 119:   // EALREADY (all the sockets are non-blocking)
                 case  11:   // EAGAIN or EWOULDBLOCK
                             if (idleTimeout ()) {
-                                cout << ( dmesgQueue << "[tcpConn] " << "timeout" );
+                                // cout << ( dmesgQueue << "[tcpConn] " << "timeout" ); // do not log, this is a normal end of connection in httpServer
                                 return -1;
                             } else {
                                 // continue waiting

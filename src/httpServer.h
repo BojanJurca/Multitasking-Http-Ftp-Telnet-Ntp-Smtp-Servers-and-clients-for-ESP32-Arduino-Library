@@ -57,12 +57,6 @@
                   directive. When the browser requests several pages from server it can do it over the same TCP connection in short time period 
                   (one after another) reducing the need of establishing and terminating TCP connections several times.   
 
-     - "session" applies to user interaction between login and logout
-
-                  Taking account the web technology one web session tipically consists of many TCP connections. Cookies are involved
-                  in order to preserve the state of the web session since HTTP requests and replies themselves are stateless. A list of 
-                  valid "session tokens" is keept on the web server so web server can check the session validity.
-
       - "buffer size" is the number of bytes that can be placed in a buffer. 
       
                   In case of C 0-terminated strings the terminating 0 character should be included in "buffer size".
@@ -109,7 +103,7 @@
     #include <mbedtls/md.h>
     #include "tcpServer.h"
     #include "tcpConnection.h"
-    
+
 
     // ----- TUNING PARAMETERS -----
 
@@ -128,7 +122,12 @@
     #define reply503 "HTTP/1.0 503 Service unavailable\r\nConnection: close\r\nRetry-After: 3\r\nContent-Length:40\r\n\r\nHTTP service is not available right now."
     #define reply507 "HTTP/1.0 507 Insuficient storage\r\nConnection: close\r\nContent-Length:41\r\n\r\nThe buffers of HTTP server are too small."
 
-    // ----- sha256 declaration -----
+
+    // WebSocket frame types
+    static constexpr byte STRING_FRAME_TYPE = 1;
+    static constexpr byte BINARY_FRAME_TYPE = 2;
+    static constexpr byte CLOSE_FRAME_TYPE  = 8;
+
 
     class httpServer_t : public tcpServer_t {
 
@@ -147,11 +146,6 @@
                     void (*__wsRequestHandlerCallback__) (const char *httpRequest, webSocket_t *webSck);
 
                     static UBaseType_t __lastHighWaterMark__;
-
-                    // WebSocket frame types
-                    static constexpr byte STRING_FRAME_TYPE = 1;
-                    static constexpr byte BINARY_FRAME_TYPE = 2;
-                    static constexpr byte CLOSE_FRAME_TYPE  = 8;
 
                     // HTTP connection related variables
                     Cstring<HTTP_BUFFER_SIZE> __httpRequestAndReplyBuffer__; // empty by default
@@ -268,7 +262,7 @@
                         fileSystem.mkdir ("/var/www");
                         fileSystem.mkdir ("/var/www/html");
                         if (!fileSystem.isDirectory ("/var/www/html"))
-                            cout << ( dmesgQueue << "[httpServer] " << "can't create /var/www/html" );
+                            cout << ( dmesgQueue << "[httpServer] " "can't create /var/www/html" );
                     }
                 }
             }
@@ -355,7 +349,7 @@
                             if (!f.isDirectory ()) {                                  
                                 if (__httpReplyHeader__.errorFlags ()) {
                                     f.close ();
-                                    cout << ( dmesgQueue << "[httpConn] " << "reply header buffer too small" );
+                                    cout << ( dmesgQueue << "[httpConn] " "reply header buffer too small" );
                                     tcpConnection_t::sendString (reply507);
                                     return true;
                                 }
@@ -388,7 +382,7 @@
                                 __httpRequestAndReplyBuffer__ [HTTP_BUFFER_SIZE] = 0;
                                 if (tcpConnection_t::sendBlock (__httpRequestAndReplyBuffer__, httpReplyHeaderLen + bytesReadThisTime) <= 0) {
                                     f.close ();
-                                    cout << ( dmesgQueue << "[httpConn] " << "send failed" );
+                                    cout << ( dmesgQueue << "[httpConn] " "send failed" );
                                     return true;
                                 }
                         
@@ -400,13 +394,13 @@
                                     delay (10); // WiFi STAtion sometimes disconnects at heavy load - maybe giving it some time would make things better? 
                                     if (!bytesReadThisTime) {
                                         f.close ();
-                                        cout << ( dmesgQueue << "[httpConn] " << "can't read " << fileName );
+                                        cout << ( dmesgQueue << "[httpConn] " "can't read " << fileName );
                                         return true;
                                     }
                     
                                     if (tcpConnection_t::sendBlock (__httpRequestAndReplyBuffer__, bytesReadThisTime) <= 0) {
                                         f.close ();
-                                        cout << ( dmesgQueue << "[httpConn] " << "can't send " << fileName );
+                                        cout << ( dmesgQueue << "[httpConn] " "can't send " << fileName );
                                         return true;
                                     }
                                     bytesSent += bytesReadThisTime; // already sent
