@@ -8,7 +8,7 @@
   This library is based on Let's make a NTP Client in C: https://lettier.github.io/posts/2016-04-26-lets-make-a-ntp-client-in-c.html
   which I'm keeping here as close to the original as possible due to its comprehensive explanation.
 
-  February 6, 2026, Bojan Jurca
+  March 12, 2026, Bojan Jurca
 
 */
 
@@ -18,8 +18,6 @@
 #include <errno.h>
 #include <sys/time.h>
 #include "ntpClient.h"
-#include <dmesg.hpp>
-#include <ostream.hpp>
 
 
 ntpClient_t::ntpClient_t () {}
@@ -27,11 +25,11 @@ ntpClient_t::ntpClient_t () {}
 ntpClient_t::ntpClient_t (const char *ntpServer0,
                           const char *ntpServer1,
                           const char *ntpServer2) {
-    strncpy (__ntpServer__ [0], ntpServer0, sizeof (__ntpServer__  [0]));
+    strncpy (__ntpServer__ [0], ntpServer0, sizeof (__ntpServer__ [0]));
     if (ntpServer1)
-        strncpy (__ntpServer__  [1], ntpServer1, sizeof (__ntpServer__  [1]));
+        strncpy (__ntpServer__ [1], ntpServer1, sizeof (__ntpServer__ [1]));
     if (ntpServer2)
-        strncpy (__ntpServer__  [2], ntpServer2, sizeof (__ntpServer__  [2]));
+        strncpy (__ntpServer__ [2], ntpServer2, sizeof (__ntpServer__ [2]));
 }
 
 // synchronizes time with NTP server, returns error message or "" if OK

@@ -70,7 +70,7 @@
   // TUNING PARAMETERS
 
   #ifndef TCP_LISTENER_STACK_SIZE
-    #define TCP_LISTENER_STACK_SIZE (2 * 1024 + 512)
+    #define TCP_LISTENER_STACK_SIZE (3 * 1024)
   #endif
 
   #ifndef SOCKET_TIMEOUT

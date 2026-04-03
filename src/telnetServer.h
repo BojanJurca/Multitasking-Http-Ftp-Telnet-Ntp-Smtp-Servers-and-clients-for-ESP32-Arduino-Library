@@ -168,7 +168,11 @@
                 #define TELNET_SENDMAIL_COMMAND 1   // 0=exclude, 1=include, sendmail included by default
         #endif
         #ifndef TELNET_LS_COMMAND
-                #define TELNET_LS_COMMAND 0         // 0=exclude, 1=include, ls included by default
+                #ifdef __THREAD_SAFE_FS__
+                        #define TELNET_LS_COMMAND 1         // 0=exclude, 1=include, ls included by default
+                #else
+                        #define TELNET_LS_COMMAND 0         // 0=exclude, 1=include, ls included by default
+                #endif
         #endif
         #if TELNET_LS_COMMAND == 1
                 #ifndef __THREAD_SAFE_FS__
@@ -176,7 +180,11 @@
                 #endif
         #endif
         #ifndef TELNET_TREE_COMMAND
-                #define TELNET_TREE_COMMAND 0       // 0=exclude, 1=include, tree included by default
+                #ifdef __THREAD_SAFE_FS__
+                        #define TELNET_TREE_COMMAND 1       // 0=exclude, 1=include, tree included by default
+                #else
+                        #define TELNET_TREE_COMMAND 0       // 0=exclude, 1=include, tree included by default
+                #endif
         #endif
         #if TELNET_TREE_COMMAND == 1
                 #ifndef __THREAD_SAFE_FS__
@@ -184,7 +192,11 @@
                 #endif
         #endif
         #ifndef TELNET_MKDIR_COMMAND
-                #define TELNET_MKDIR_COMMAND 0      // 0=exclude, 1=include, mkdir included by default
+                #ifdef __THREAD_SAFE_FS__
+                        #define TELNET_MKDIR_COMMAND 1      // 0=exclude, 1=include, mkdir included by default
+                #else
+                        #define TELNET_MKDIR_COMMAND 0      // 0=exclude, 1=include, mkdir included by default
+                #endif
         #endif
         #if TELNET_MKDIR_COMMAND == 1
                 #ifndef __THREAD_SAFE_FS__
@@ -192,7 +204,11 @@
                 #endif
         #endif
         #ifndef TELNET_RMDIR_COMMAND
-                #define TELNET_RMDIR_COMMAND 0      // 0=exclude, 1=include, rmdir included by default
+                #ifdef __THREAD_SAFE_FS__
+                        #define TELNET_RMDIR_COMMAND 1      // 0=exclude, 1=include, rmdir included by default
+                #else
+                        #define TELNET_RMDIR_COMMAND 0      // 0=exclude, 1=include, rmdir included by default
+                #endif
         #endif
         #if TELNET_RMDIR_COMMAND == 1
                 #ifndef __THREAD_SAFE_FS__
@@ -200,7 +216,11 @@
                 #endif
         #endif
         #ifndef TELNET_CD_COMMAND
-                #define TELNET_CD_COMMAND 0         // 0=exclude, 1=include, cd included by default
+                #ifdef __THREAD_SAFE_FS__
+                        #define TELNET_CD_COMMAND 1         // 0=exclude, 1=include, cd included by default
+                #else
+                        #define TELNET_CD_COMMAND 0         // 0=exclude, 1=include, cd included by default
+                #endif
         #endif
         #if TELNET_CD_COMMAND == 1
                 #ifndef __THREAD_SAFE_FS__
@@ -208,7 +228,11 @@
                 #endif
         #endif
         #ifndef TELNET_PWD_COMMAND
-                #define TELNET_PWD_COMMAND 0        // 0=exclude, 1=include, pwd included by default
+                #ifdef __THREAD_SAFE_FS__
+                        #define TELNET_PWD_COMMAND 1        // 0=exclude, 1=include, pwd included by default
+                #else
+                        #define TELNET_PWD_COMMAND 0        // 0=exclude, 1=include, pwd included by default
+                #endif
         #endif
         #if TELNET_PWD_COMMAND == 1
                 #ifndef __THREAD_SAFE_FS__
@@ -216,7 +240,11 @@
                 #endif
         #endif
         #ifndef TELNET_CAT_COMMAND
-                #define TELNET_CAT_COMMAND 0        // 0=exclude, 1=include, cat included by default
+                #ifdef __THREAD_SAFE_FS__
+                        #define TELNET_CAT_COMMAND 1        // 0=exclude, 1=include, cat included by default
+                #else
+                        #define TELNET_CAT_COMMAND 0        // 0=exclude, 1=include, cat included by default
+                #endif
         #endif
         #if TELNET_CAT_COMMAND == 1
                 #ifndef __THREAD_SAFE_FS__
@@ -224,7 +252,11 @@
                 #endif
         #endif
         #ifndef TELNET_VI_COMMAND
-                #define TELNET_VI_COMMAND 0         // 0=exclude, 1=include, vi included by default
+                #ifdef __THREAD_SAFE_FS__
+                        #define TELNET_VI_COMMAND 1         // 0=exclude, 1=include, vi included by default
+                #else
+                        #define TELNET_VI_COMMAND 0         // 0=exclude, 1=include, vi included by default
+                #endif
         #endif
         #if TELNET_VI_COMMAND == 1
                 #ifndef __THREAD_SAFE_FS__
@@ -232,7 +264,11 @@
                 #endif
         #endif
         #ifndef TELNET_CP_COMMAND
-                #define TELNET_CP_COMMAND 0         // 0=exclude, 1=include, cp included by default
+                #ifdef __THREAD_SAFE_FS__
+                        #define TELNET_CP_COMMAND 1         // 0=exclude, 1=include, cp included by default
+                #else
+                        #define TELNET_CP_COMMAND 0         // 0=exclude, 1=include, cp included by default
+                #endif
         #endif
         #if TELNET_CP_COMMAND == 1
                 #ifndef __THREAD_SAFE_FS__
@@ -240,7 +276,11 @@
                 #endif
         #endif
         #ifndef TELNET_RM_COMMAND
-                #define TELNET_RM_COMMAND 0         // 0=exclude, 1=include, rm included by default
+                #ifdef __THREAD_SAFE_FS__
+                        #define TELNET_RM_COMMAND 1         // 0=exclude, 1=include, rm included by default
+                #else
+                        #define TELNET_RM_COMMAND 0         // 0=exclude, 1=include, rm included by default
+                #endif
         #endif
         #if TELNET_RM_COMMAND == 1
                 #ifndef __THREAD_SAFE_FS__
@@ -248,7 +288,11 @@
                 #endif
         #endif
         #ifndef TELNET_LSOF_COMMAND
-                #define TELNET_LSOF_COMMAND 0      // 0=exclude, 1=include, mkdir included by default
+                #ifdef __THREAD_SAFE_FS__
+                        #define TELNET_LSOF_COMMAND 1      // 0=exclude, 1=include, mkdir included by default
+                #else
+                        #define TELNET_LSOF_COMMAND 0      // 0=exclude, 1=include, mkdir included by default
+                #endif
         #endif
         #if TELNET_LSOF_COMMAND == 1
                 #ifndef __THREAD_SAFE_FS__
@@ -284,7 +328,7 @@
 
         #ifndef TELNET_CONNECTION_STACK_SIZE
                 #ifdef __THREAD_SAFE_FS__
-                        #define TELNET_CONNECTION_STACK_SIZE (8 * 1024 + 512)
+                        #define TELNET_CONNECTION_STACK_SIZE (10 * 1024)
                 #else
                         #define TELNET_CONNECTION_STACK_SIZE (7 * 1024)
                 #endif
@@ -1577,10 +1621,12 @@
                         time_t uptime = ntpClient_t ().getUpTime (); // we'll read uptime from ntpClient
                         if (uptime) { // if time is set
                                 time_t t = time (NULL);
-                                struct tm strTime;
-                                localtime_r (&t, &strTime);
-                                sprintf (c, "%02i:%02i:%02i", strTime.tm_hour, strTime.tm_min, strTime.tm_sec);
-                                s = Cstring<300> (c) + " up ";     
+                                if (t < 1600000000) { //  1600000000 ~2020
+                                        struct tm strTime;
+                                        localtime_r (&t, &strTime);
+                                        sprintf (c, "%02i:%02i:%02i", strTime.tm_hour, strTime.tm_min, strTime.tm_sec);
+                                        s = Cstring<300> (c) + " up ";     
+                                }
                         } else { // the time is not correctly set, just read how far clock has come untill now
                                 s = "Up ";
                         }

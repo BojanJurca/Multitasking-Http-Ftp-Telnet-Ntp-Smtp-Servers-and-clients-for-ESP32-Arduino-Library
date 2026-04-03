@@ -250,7 +250,6 @@
                                                                  __fileSystem__ (&fileSystem),
                                                                  __httpRequestHandlerCallback__ (httpRequestHandlerCallback),
                                                                  __wsRequestHandlerCallback__ (wsRequestHandlerCallback) {
-
                 if (__fileSystem__) {
                     // get address of a function that handles files
                     __replyWithFileContentPtr__ = &webSocket_t::__replyWithFileContent__;
@@ -282,7 +281,6 @@
 
         // called only from __runConnectionTask__ ()
         bool httpServer_t::webSocket_t::__replyWithFileContent__ () {
-
             threadSafeFS::FS *fileSystem = (threadSafeFS::FS *) __fileSystem__;
             if (!fileSystem) return false; // shouldn't happen but check anyway
 
@@ -320,96 +318,96 @@
                         threadSafeFS::File f;
                         // check if there is a compressed .gz file available
                         if (fileName.endsWith (".gz")) {
-
+                            // browser requested a .gz file
                             setHttpReplyHeaderField ("Content-Encoding", "gzip");
                             f = fileSystem->open (fileName, "r");
                         } else {
 
                             // if the browser accepts gzip
                             if (browserAcceptsGzip) {
-
-                                f = fileSystem->open (fileName + ".gz", "r");
-                                if (f) {
-
+                                if (fileSystem->exists (fileName + ".gz")) {
                                     fileName += ".gz";
-                                    setHttpReplyHeaderField ("Content-Encoding", "gzip");
+                                    // browser accepts .gz and .gz exists
+                                    f = fileSystem->open (fileName, "r");
+                                    if (f) {
+                                        // .gz opened
+                                        setHttpReplyHeaderField ("Content-Encoding", "gzip");
+                                    } else {
+                                        // no, try opening uncompressed fileName
+                                        f = fileSystem->open (fileName, "r");
+                                    }
                                 } else {
-
-                                    // no, open uncompressed fileName
+                                    // browser accepts .gz but it doesn't exist, open uncompressed file
                                     f = fileSystem->open (fileName, "r");
                                 }
                             } else {
-
-                                // no, open uncompressed fileName
+                                // browser doesn't accept .gz, open uncompressed fileName
                                 f = fileSystem->open (fileName, "r");
                             }
                         }
 
-                        if (f) {
-                            if (!f.isDirectory ()) {                                  
-                                if (__httpReplyHeader__.errorFlags ()) {
-                                    f.close ();
-                                    cout << ( dmesgQueue << "[httpConn] " "reply header buffer too small" );
-                                    tcpConnection_t::sendString (reply507);
-                                    return true;
-                                }
-
-                                // construct the whole HTTP reply from differrent pieces and send it to client (browser)
-                                // if the reply is short enough send it in one block,
-                                // if not send header first and then the content, so we won't have to move hughe blocks of data
-                                unsigned long httpReplyContentLen = f.size ();
-                                __httpRequestAndReplyBuffer__ = "";
-                                __httpRequestAndReplyBuffer__ += "HTTP/1.1 ";
-                                __httpRequestAndReplyBuffer__ += __httpReplyStatus__.c_str ();
-                                __httpRequestAndReplyBuffer__ += "\r\n";
-                                __httpRequestAndReplyBuffer__ += __httpReplyHeader__.c_str ();
-                                __httpRequestAndReplyBuffer__ += "Content-Length: ";
-                                __httpRequestAndReplyBuffer__ += httpReplyContentLen; 
-                                __httpRequestAndReplyBuffer__ += "\r\n\r\n";
-
-                                unsigned long httpReplyHeaderLen = __httpRequestAndReplyBuffer__.length ();
-
-                                // can not happen due to the difference in lengths, we can skip checking:
-                                // if (ths->__httpRequestAndReplyBuffer__.error ()) {
-                                //    dmesg ("[httpConn] __httpRequestAndReplyBuffer__ too small");
-                                //    sendAll (ths->__connectionSocket__, reply507, HTTP_CONNECTION_TIME_OUT);
-                                //    goto endOfConnection;
-                                // }
-
-                                int bytesToReadThisTime = min (httpReplyContentLen, HTTP_BUFFER_SIZE - httpReplyHeaderLen); 
-                                int bytesReadThisTime = f.read ((uint8_t *) &__httpRequestAndReplyBuffer__ [httpReplyHeaderLen], bytesToReadThisTime);
-
-                                __httpRequestAndReplyBuffer__ [HTTP_BUFFER_SIZE] = 0;
-                                if (tcpConnection_t::sendBlock (__httpRequestAndReplyBuffer__, httpReplyHeaderLen + bytesReadThisTime) <= 0) {
-                                    f.close ();
-                                    cout << ( dmesgQueue << "[httpConn] " "send failed" );
-                                    return true;
-                                }
-                        
-                                int bytesSent = bytesReadThisTime; // already sent
-                                while (bytesSent < httpReplyContentLen) {
-                                    bytesToReadThisTime = min (httpReplyContentLen - bytesSent, (unsigned long) HTTP_BUFFER_SIZE);
-                                    bytesReadThisTime = f.read ((uint8_t *) &__httpRequestAndReplyBuffer__ [0], (unsigned long) bytesToReadThisTime);
-
-                                    delay (10); // WiFi STAtion sometimes disconnects at heavy load - maybe giving it some time would make things better? 
-                                    if (!bytesReadThisTime) {
-                                        f.close ();
-                                        cout << ( dmesgQueue << "[httpConn] " "can't read " << fileName );
-                                        return true;
-                                    }
-                    
-                                    if (tcpConnection_t::sendBlock (__httpRequestAndReplyBuffer__, bytesReadThisTime) <= 0) {
-                                        f.close ();
-                                        cout << ( dmesgQueue << "[httpConn] " "can't send " << fileName );
-                                        return true;
-                                    }
-                                    bytesSent += bytesReadThisTime; // already sent
-                                }
-                                // HTTP reply sent
-                                f.close ();                                   
+                        if (f && !f.isDirectory ()) {                               
+                            if (__httpReplyHeader__.errorFlags ()) {
+                                f.close ();
+                                cout << ( dmesgQueue << "[httpConn] " "reply header buffer too small" );
+                                tcpConnection_t::sendString (reply507);
                                 return true;
-                            } // if file is a file
-                            f.close ();
+                            }
+
+                            // construct the whole HTTP reply from differrent pieces and send it to client (browser)
+                            // if the reply is short enough send it in one block,
+                            // if not send header first and then the content, so we won't have to move hughe blocks of data
+                            unsigned long httpReplyContentLen = f.size ();
+                            __httpRequestAndReplyBuffer__ = "";
+                            __httpRequestAndReplyBuffer__ += "HTTP/1.1 ";
+                            __httpRequestAndReplyBuffer__ += __httpReplyStatus__.c_str ();
+                            __httpRequestAndReplyBuffer__ += "\r\n";
+                            __httpRequestAndReplyBuffer__ += __httpReplyHeader__.c_str ();
+                            __httpRequestAndReplyBuffer__ += "Content-Length: ";
+                            __httpRequestAndReplyBuffer__ += httpReplyContentLen; 
+                            __httpRequestAndReplyBuffer__ += "\r\n\r\n";
+
+                            unsigned long httpReplyHeaderLen = __httpRequestAndReplyBuffer__.length ();
+
+                            // can not happen due to the difference in lengths, we can skip checking:
+                            // if (ths->__httpRequestAndReplyBuffer__.error ()) {
+                            //    dmesg ("[httpConn] __httpRequestAndReplyBuffer__ too small");
+                            //    sendAll (ths->__connectionSocket__, reply507, HTTP_CONNECTION_TIME_OUT);
+                            //    goto endOfConnection;
+                            // }
+
+                            int bytesToReadThisTime = min (httpReplyContentLen, HTTP_BUFFER_SIZE - httpReplyHeaderLen); 
+                            int bytesReadThisTime = f.read ((uint8_t *) &__httpRequestAndReplyBuffer__ [httpReplyHeaderLen], bytesToReadThisTime);
+
+                            __httpRequestAndReplyBuffer__ [HTTP_BUFFER_SIZE] = 0;
+                            if (tcpConnection_t::sendBlock (__httpRequestAndReplyBuffer__, httpReplyHeaderLen + bytesReadThisTime) <= 0) {
+                                f.close ();
+                                cout << ( dmesgQueue << "[httpConn] " "send failed" );
+                                return true;
+                            }
+                    
+                            int bytesSent = bytesReadThisTime; // already sent
+                            while (bytesSent < httpReplyContentLen) {
+                                bytesToReadThisTime = min (httpReplyContentLen - bytesSent, (unsigned long) HTTP_BUFFER_SIZE);
+                                bytesReadThisTime = f.read ((uint8_t *) &__httpRequestAndReplyBuffer__ [0], (unsigned long) bytesToReadThisTime);
+
+                                delay (10); // WiFi STAtion sometimes disconnects at heavy load - maybe giving it some time would make things better? 
+                                if (!bytesReadThisTime) {
+                                    f.close ();
+                                    cout << ( dmesgQueue << "[httpConn] " "can't read " << fileName );
+                                    return true;
+                                }
+                
+                                if (tcpConnection_t::sendBlock (__httpRequestAndReplyBuffer__, bytesReadThisTime) <= 0) {
+                                    f.close ();
+                                    cout << ( dmesgQueue << "[httpConn] " "can't send " << fileName );
+                                    return true;
+                                }
+                                bytesSent += bytesReadThisTime; // already sent
+                            }
+                            // HTTP reply sent
+                            f.close ();                                   
+                            return true;
 
                         } // if file is open
 
