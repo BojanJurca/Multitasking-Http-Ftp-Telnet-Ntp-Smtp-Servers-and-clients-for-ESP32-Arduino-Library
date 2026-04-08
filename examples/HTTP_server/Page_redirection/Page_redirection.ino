@@ -1,3 +1,10 @@
+/*
+  **Note:** Each example demonstrates only a specific feature or use case.  
+  The complete, fully integrated server solution is available here:  
+  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino/blob/master/PROJECT_STATE.md
+*/
+
+
 #include <WiFi.h>
 #include <httpServer.h>
 
@@ -70,7 +77,7 @@ void setup () {
                                                                             // int serverPort = 80,
                                                                             // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
                                                                             // bool runListenerInItsOwnTask = true
-  
+
   // Check if HTTP server instance is created && HTTP server is running
   if (httpServer && *httpServer)
     Serial.println ("HTTP server started");
