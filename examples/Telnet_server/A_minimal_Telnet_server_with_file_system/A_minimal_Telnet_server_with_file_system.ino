@@ -1,9 +1,14 @@
+/*
+  **Note:** Each example demonstrates only a specific feature or use case.  
+  The complete, fully integrated server solution is available here:  
+  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino/blob/master/PROJECT_STATE.md
+*/
+
+
 #include <WiFi.h>
-#include <SPIFFS.h>               // Or LittleFS.h or FFat.h or SD.h ...
-                                  //    SPIFFS seems to be the most stable choice although it has its limitations:
-                                  //    speed, does not really support directories, does not support file times, shorter file names
-#include <threadSafeFS.h>         // Include thread-safe wrapper since LittleFS, FFat and SD file systems are not thread safe
-using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operations form now on in your code
+#include <LittleFS.h>             // Or SPIFFS.h or FFat.h or SD.h ...
+#include <threadSafeFS.h>         // Include thread-safe wrapper since SPIFFS, LittleFS, FFat and SD file systems are not thread safe
+using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operations from now on in your code
 #include <ntpClient.h>            // NTP client is neede only for time commands
 #define HOSTNAME "Esp32Server"    // Choose your server's name - this is how Telnet server would introduce itself to the clients
 
@@ -44,8 +49,8 @@ using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operat
 #include <telnetServer.h>
 
 
-// 2️⃣ Crete thread-safe wrapper arround LittleFS (or FFat or SD)
-threadSafeFS::FS TSFS (SPIFFS);   // Or LittleFS or FFat or SD ...
+// 2️⃣ Crete thread-safe wrapper arround LittleFS (or SPIFFS or FFat or SD)
+threadSafeFS::FS TSFS (LittleFS);   // Or SPIFFS or FFat or SD ...
 
 
 telnetServer_t *telnetServer = NULL;
@@ -55,7 +60,7 @@ void setup () {
 
 
   // 3️⃣ Start LittleFS (or FFat or SD)
-  SPIFFS.begin (true);
+  LittleFS.begin (true);
 
 
   // 4️⃣ Start WiFi connection
@@ -87,7 +92,7 @@ void setup () {
 
 
   // 8️⃣ Setting the time is only important for time commands
-  setenv ("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1); // or select another (POSIX) time zones: https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
+  setenv ("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1); // or select another (POSIX) time zone: https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
   ntpClient_t ntpClient ("1.si.pool.ntp.org", "2.si.pool.ntp.org", "3.si.pool.ntp.org");
   ntpClient.syncTime ();
 
