@@ -93,21 +93,11 @@
 
     // TUNING PARAMETERS
 
-    #ifndef FTP_CONTROL_CONNECTION_STACK_SIZE
-        #define FTP_CONTROL_CONNECTION_STACK_SIZE (6 * 1024)    // a good first estimate how to set this parameter would be to always leave at least 1 KB of each ftpControlConnection stack unused
-    #endif
-    #ifndef FTP_CMDLINE_BUFFER_SIZE
-        #define FTP_CMDLINE_BUFFER_SIZE 300                     // reading and temporary keeping FTP command lines                    
-    #endif
-    #ifndef FTP_SESSION_MAX_ARGC
-        #define FTP_SESSION_MAX_ARGC 5                          // max number of arguments in command line, 5 is enough for FTP protocol                       
-    #endif
-    #ifndef FTP_CONTROL_CONNECTION_TIME_OUT
-        #define FTP_CONTROL_CONNECTION_TIME_OUT 300             // 300 s = 5 min, set to 0 for infinite            
-    #endif
-    #ifndef FTP_DATA_CONNECTION_TIME_OUT
-        #define FTP_DATA_CONNECTION_TIME_OUT 3                  // 3 s, set to 0 for infinite            
-    #endif
+    #define FTP_CONTROL_CONNECTION_STACK_SIZE (8 * 1024)        // a good first estimate how to set this parameter would be to always leave at least 1 KB of each ftpControlConnection stack unused
+    #define FTP_CMDLINE_BUFFER_SIZE 300                         // reading and temporary keeping FTP command lines                    
+    #define FTP_SESSION_MAX_ARGC 5                              // max number of arguments in command line, 5 is enough for FTP protocol                       
+    #define FTP_CONTROL_CONNECTION_TIME_OUT 300                 // 300 s = 5 min, set to 0 for infinite            
+    #define FTP_DATA_CONNECTION_TIME_OUT 3                      // 3 s, set to 0 for infinite            
 
     #ifndef HOSTNAME
         #define HOSTNAME "Esp32Server"                          // use default HOSTNAME if not defined previously

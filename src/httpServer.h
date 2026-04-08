@@ -254,8 +254,7 @@
                     // get address of a function that handles files
                     __replyWithFileContentPtr__ = &webSocket_t::__replyWithFileContent__;
 
-                    // create directory structure
-
+                    // create directory structure and default index.html
                     if (!fileSystem.isDirectory ("/var/www/html")) {
                         fileSystem.mkdir ("/var");
                         fileSystem.mkdir ("/var/www");
@@ -263,6 +262,23 @@
                         if (!fileSystem.isDirectory ("/var/www/html"))
                             cout << ( dmesgQueue << "[httpServer] " "can't create /var/www/html" );
                     }
+                    if (!fileSystem.isFile ("/var/www/html/index.html")) {
+                        threadSafeFS::File f = fileSystem.open ("/var/www/html/index.html", "w");
+                        if (f) {
+                            f.print ("<!DOCTYPE html>\n"
+                                     "<html lang='en'>\n"
+                                     "   <head>\n"
+                                     "      <meta charset='UTF-8'>\n"
+                                     "      <title>Hello world!</title>\n"
+                                     "   </head>\n"
+                                     "   <body>\n"
+                                     "      <h1>Hello world!</h1>\n"
+                                     "   </body>\n"
+                                     "</html>");
+                            f.close ();
+                        }
+                    }
+
                 }
             }
 

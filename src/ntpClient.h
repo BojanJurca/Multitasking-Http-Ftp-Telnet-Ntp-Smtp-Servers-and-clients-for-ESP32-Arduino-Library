@@ -48,7 +48,6 @@
 
       #ifdef __THREAD_SAFE_FS__
 
-          // cronDaemon with /etc/crontab file
           ntpClient_t (threadSafeFS::FS& fileSystem,
                        const char *ntpServer0 = NULL,
                        const char *ntpServer1 = NULL,
