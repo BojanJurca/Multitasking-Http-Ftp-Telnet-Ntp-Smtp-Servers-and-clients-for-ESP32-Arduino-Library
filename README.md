@@ -1,4 +1,4 @@
-# ESP32_Multitasking_Network_Suite
+# ESP32 Multitasking Network Suite
 
 Multitasking HTTP, FTP, Telnet servers and thread-safe NTP, HTTP, SMTP clients.
 
