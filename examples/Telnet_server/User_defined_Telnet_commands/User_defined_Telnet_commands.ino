@@ -1,3 +1,10 @@
+/*
+  **Note:** Each example demonstrates only a specific feature or use case.  
+  The complete, fully integrated server solution is available here:  
+  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino/blob/master/PROJECT_STATE.md
+*/
+
+
 #include <WiFi.h>
 #include <ntpClient.h>            // NTP client is neede only for time commands
 #define HOSTNAME "Esp32Server"    // Choose your server's name - this is how Telnet server would introduce itself to the clients
