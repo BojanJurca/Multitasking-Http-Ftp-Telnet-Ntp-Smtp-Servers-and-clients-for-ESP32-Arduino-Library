@@ -1,7 +1,14 @@
+/*
+  **Note:** Each example demonstrates only a specific feature or use case.  
+  The complete, fully integrated server solution is available here:  
+  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino/blob/master/PROJECT_STATE.md
+*/
+
+
 #include <WiFi.h>
 #include <LittleFS.h>             // Or SPIFFS.h or FFat.h or SD.h ...
-#include <threadSafeFS.h>         // Include thread-safe wrapper since LittleFS, FFat and SD file systems are not thread safe
-using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operations form now on in your code
+#include <threadSafeFS.h>         // Include thread-safe wrapper since SPIFFS, LittleFS, FFat and SD file systems are not thread safe
+using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operations from now on in your code
 #include <ntpClient.h>            // Setting the time is not really necessary, only if you want to see the correct file creation times
 #define HOSTNAME "Esp32Server"    // Choose your server's name - this is how FTP server would introduce itself to the clients
 #include <ftpServer.h>
@@ -11,7 +18,7 @@ using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operat
 threadSafeFS::FS TSFS (LittleFS);
 
 
-// 2️⃣ Use thread-safe wrapper for all file operations form now on in your code
+// 2️⃣ Use thread-safe wrapper for all file operations from now on in your code
 using File = threadSafeFS::File;
 
 ftpServer_t *ftpServer = NULL;
@@ -52,7 +59,7 @@ void setup () {
 
 
   // 8️⃣ Setting the time is not really necessary, only if you want to see the correct file creation times
-  setenv ("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1); // or select another (POSIX) time zones: https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
+  setenv ("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1); // or select another (POSIX) time zone: https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
   ntpClient_t ntpClient ("1.si.pool.ntp.org", "2.si.pool.ntp.org", "3.si.pool.ntp.org");
   ntpClient.syncTime ();
 
