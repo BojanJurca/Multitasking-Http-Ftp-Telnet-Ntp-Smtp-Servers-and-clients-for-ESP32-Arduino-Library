@@ -1,4 +1,4 @@
-# ESP32 Multitasking Network Suite
+# ESP32 Multitasking Network Suite - Arduino Library
 
 Multitasking HTTP, FTP, Telnet servers and thread-safe NTP, HTTP, SMTP clients.
 
