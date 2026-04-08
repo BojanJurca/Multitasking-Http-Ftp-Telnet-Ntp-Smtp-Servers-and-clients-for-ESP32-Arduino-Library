@@ -1,3 +1,10 @@
+/*
+  **Note:** Each example demonstrates only a specific feature or use case.  
+  The complete, fully integrated server solution is available here:  
+  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino/blob/master/PROJECT_STATE.md
+*/
+
+
 #include <WiFi.h>
 #include <httpServer.h>
 #include <ntpClient.h>            // Setting the time is necessary to set cookie expiration time
@@ -22,7 +29,8 @@ String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpCo
 
     // 2️⃣ Set the cookie that will be sent to the browser through HTTP reply
     hcn->setHttpReplyCookie ("refreshCounter", refreshCounter, time (NULL) + 60); // cookie is valid 1 minute
-                                                                                  // if time is set to 0 the cookie doesn't expire    
+                                                                                  // if time is set to 0 the cookie doesn't expire
+
 
     // 3️⃣ Return HTML content that will be sent to the browser through HTTP reply
     String httpReply = "<!DOCTYPE html>\n"
@@ -61,7 +69,6 @@ void setup () {
                                                                             // int serverPort = 80,
                                                                             // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
                                                                             // bool runListenerInItsOwnTask = true
-
 
   // Check if HTTP server instance is created && HTTP server is running
   if (httpServer && *httpServer)
