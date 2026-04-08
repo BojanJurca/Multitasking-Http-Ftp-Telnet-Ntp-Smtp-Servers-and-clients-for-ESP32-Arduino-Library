@@ -1,9 +1,14 @@
+/*
+  **Note:** Each example demonstrates only a specific feature or use case.  
+  The complete, fully integrated server solution is available here:  
+  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino/blob/master/PROJECT_STATE.md
+*/
+
+
 #include <WiFi.h>
-#include <SPIFFS.h>               // Or LittleFS.h or FFat.h or SD.h ...
-                                  //    SPIFFS seems to be the most stable choice although it has its limitations:
-                                  //    speed, does not support real directories, does not support file times, shorter file names
+#include <LittleFS.h>             // Or SPIFFS.h or FFat.h or SD.h ...
 #include <threadSafeFS.h>         // Include thread-safe wrapper since LittleFS, FFat and SD file systems are not thread safe
-using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operations form now on in your code
+using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operations from now on in your code
 #include <ntpClient.h>            // NTP client is neede only for time commands
 #define HOSTNAME "Esp32Server"    // Choose your server's name - this is how Telnet server would introduce itself to the clients
 
@@ -43,8 +48,8 @@ using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operat
 
 #include <telnetServer.h>
 
-// Crete thread-safe wrapper arround SPIFFS (or LittleFS or FFat or SD ...)
-threadSafeFS::FS TSFS (SPIFFS);   // Or LittleFS or FFat or SD ...
+// Crete thread-safe wrapper arround LittleFS (or SPIFFS or FFat or SD ...)
+threadSafeFS::FS TSFS (LittleFS);
 
 telnetServer_t *telnetServer = NULL;
 
@@ -65,7 +70,7 @@ Cstring<255> getUserHomeDirectoryCallback (const Cstring<64>& userName, const Cs
 
 void setup () {
   Serial.begin (115200);
-  SPIFFS.begin (true);
+  LittleFS.begin (true);
   WiFi.begin ("YOUR_SSID", "YOUR_PASSWORD");
 
 
