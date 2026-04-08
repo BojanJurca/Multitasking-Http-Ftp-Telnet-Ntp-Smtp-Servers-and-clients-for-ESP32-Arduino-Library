@@ -1,3 +1,10 @@
+/*
+  **Note:** Each example demonstrates only a specific feature or use case.  
+  The complete, fully integrated server solution is available here:  
+  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino/blob/master/PROJECT_STATE.md
+*/
+
+
 #include <WiFi.h>
 #include <SPIFFS.h>               // Or LittleFS.h or FFat.h or SD.h ...
                                   //    SPIFFS seems to be the most stable choice although it has its limitations:
@@ -9,7 +16,7 @@
 threadSafeFS::FS TSFS (SPIFFS);   // Or LittleFS or FFat or SD ...
 
 
-// 2️⃣ Use thread-safe wrapper for all file operations form now on in your code
+// 2️⃣ Use thread-safe wrapper for all file operations from now on in your code
 using File = threadSafeFS::File;  
 
 
@@ -82,7 +89,7 @@ void setup () {
   // Start WiFi connection
   WiFi.begin ("YOUR_SSID", "YOUR_PASSWORD");
 
-  
+
   // 5️⃣ Create HTTP server instance passing it callback function that will handle the HTTP requests 
                                                         // optional arguments:
   httpServer = new (std::nothrow) httpServer_t (TSFS);  // threadSafeFS::FS& fileSystem,
