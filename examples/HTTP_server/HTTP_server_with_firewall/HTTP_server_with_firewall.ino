@@ -1,3 +1,10 @@
+/*
+  **Note:** Each example demonstrates only a specific feature or use case.  
+  The complete, fully integrated server solution is available here:  
+  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino/blob/master/PROJECT_STATE.md
+*/
+
+
 #include <WiFi.h>
 #include <httpServer.h>
 
@@ -66,9 +73,9 @@ void setup () {
 
   // Use web browser to connect to ESP32's IP address
   while (WiFi.localIP () == IPAddress (0, 0, 0, 0)) { // wait until we get IP from router's DHCP
-      delay (1000); 
-      Serial.println ("   ."); 
-  } 
+      delay (1000);
+      Serial.println ("   .");
+  }
   Serial.print ("Got IP addess: "); Serial.println (WiFi.localIP ());
 
 
