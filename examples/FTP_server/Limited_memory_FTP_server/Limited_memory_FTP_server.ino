@@ -1,8 +1,15 @@
+/*
+  **Note:** Each example demonstrates only a specific feature or use case.  
+  The complete, fully integrated server solution is available here:  
+  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino/blob/master/PROJECT_STATE.md
+*/
+
+
 #include <WiFi.h>
 #include <LittleFS.h>             // Or SPIFFS.h or FFat.h or SD.h ...
-#include <threadSafeFS.h>         // Include thread-safe wrapper since LittleFS, FFat and SD file systems are not thread safe
+#include <threadSafeFS.h>         // Include thread-safe wrapper since SPIFFS, LittleFS, FFat and SD file systems are not thread safe
 threadSafeFS::FS TSFS (LittleFS); // Crete thread-safe wrapper arround LittleFS (or FFat or SD)
-using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operations form now on in your code
+using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operations from now on in your code
 #define HOSTNAME "Esp32Server"    // Choose your server's name - this is how FTP server would introduce itself to the clients
 #include <ftpServer.h>
 
