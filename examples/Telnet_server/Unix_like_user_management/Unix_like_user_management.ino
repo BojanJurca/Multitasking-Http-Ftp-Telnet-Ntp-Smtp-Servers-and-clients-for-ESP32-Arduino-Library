@@ -1,13 +1,16 @@
+/*
+  **Note:** Each example demonstrates only a specific feature or use case.  
+  The complete, fully integrated server solution is available here:  
+  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino/blob/master/PROJECT_STATE.md
+*/
+
+
 #include <WiFi.h>
-#include <SPIFFS.h>
+#include <LittleFS.h>               // Or SPIFFS.h or FFat.h or SD.h ...
 #include <threadSafeFS.h>
 #include <Cstring.hpp>
-
-
-// 1️⃣ Mount file sysstem and create thread-safe file system wrapper arround it (usernames and password are stored in files)
-bool __fsMounted__ = SPIFFS.begin (true);
-threadSafeFS::FS TSFS (SPIFFS);
-using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operations form now on in your code
+threadSafeFS::FS TSFS (LittleFS);   // Or SPIFFS or FFat or SD ...   
+using File = threadSafeFS::File;    // Use thread-safe wrapper for all file operations from now on in your code
 
 
 // Choose which built-in Telnet commands will be included
@@ -44,7 +47,7 @@ using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operat
 #define SWAP_DEL_AND_BACKSPACE 0    // set to 1 to swap the meaning of these keys - this would be suitable for Putty and Linux Telnet clients
 
 
-// 2️⃣ Provide help text for user commands
+// 1️⃣ Provide help text for user commands
 #define USER_DEFINED_TELNET_HELP_TEXT   "\r\n  user management:" \
                                         "\r\n       useradd -d <userHomeDirectory> <userName>" \
                                         "\r\n       userdel <userName>" \
@@ -54,13 +57,16 @@ using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operat
 telnetServer_t *telnetServer = NULL;
 
 
-// 3️⃣ Include userManagement_t class and create a working instance 
+// 2️⃣ Include userManagement_t class
 //     Create default /etc/passwd and /etc/shadow (with root/rootpassword and webadmin/webadminpassword) it they don't exist yet
 #include "userManagement.h"
-userManagement_t userManagement (TSFS);
+userManagement_t *userManagement;
 
 
-// 4️⃣ Provide login callback function
+// 3️⃣ Provide login callback function
+// returns        "/" for full access
+// something like "/home/name" for limited access
+//                "" for no access
 Cstring<255> getUserHomeDirectoryCallback (const Cstring<64>& userName, const Cstring<64>& password) {
 
     // Must be reentrant !!!
@@ -68,14 +74,14 @@ Cstring<255> getUserHomeDirectoryCallback (const Cstring<64>& userName, const Cs
 
     Cstring<255> retVal;
     // check if userName and password are correct
-    if (userManagement.checkUserNameAndPassword (userName, password))
-        return userManagement.getHomeDirectory (userName);
+    if (userManagement && userManagement->checkUserNameAndPassword (userName, password))
+        return userManagement->getHomeDirectory (userName);
     // else
     return "";  // access (login) denyed
 }
 
 
-// 5️⃣ Provide Telnet (uswer defined) command handler
+// 4️⃣ Provide Telnet (uswer defined) command handler
 String telnetCommandHandlerCallback (int argc, char *argv [], telnetServer_t::telnetConnection_t *tcn) {
 
     // Must be reentrant !!!
@@ -86,7 +92,7 @@ String telnetCommandHandlerCallback (int argc, char *argv [], telnetServer_t::te
     
     if (argv0is ("useradd"))        { 
                                         if (strcmp (tcn->getUserName (), "root"))       return "Only root may add users";
-                                        if (argc == 4 && argv1is ("-d"))                return userManagement.userAdd (argv [3], argv [2]);
+                                        if (argc == 4 && argv1is ("-d"))                return userManagement->userAdd (argv [3], argv [2]);
                                                                                         return "Wrong syntax, use useradd -d userHomeDirectory userName";
                                     }
                                     
@@ -94,7 +100,7 @@ String telnetCommandHandlerCallback (int argc, char *argv [], telnetServer_t::te
                                             if (strcmp (tcn->getUserName (), "root"))   return "Only root may delete users";
                                             if (argc != 2)                              return "Wrong syntax. Use userdel userName";
                                             if (!strcmp (argv [1], "root"))             return "You don't really want to to this";
-                                                                                        return userManagement.userDel (argv [1]);
+                                                                                        return userManagement->userDel (argv [1]);
                                     }
 
     else if (argv0is ("passwd"))    {
@@ -111,7 +117,7 @@ String telnetCommandHandlerCallback (int argc, char *argv [], telnetServer_t::te
                                                 }
                                                 tcn->doEcho (); 
                                                 // check if password is valid for user
-                                                if (!userManagement.checkUserNameAndPassword (tcn->getUserName (), password))
+                                                if (!userManagement->checkUserNameAndPassword (tcn->getUserName (), password))
                                                     return "Wrong password";                                                     
                                             }
                                             if (argc == 2) {
@@ -128,11 +134,11 @@ String telnetCommandHandlerCallback (int argc, char *argv [], telnetServer_t::te
                                                     }
                                                     tcn->doEcho (); 
                                                     // check if password is valid for user
-                                                    if (!userManagement.checkUserNameAndPassword (argv [1], password))
+                                                    if (!userManagement->checkUserNameAndPassword (argv [1], password))
                                                         return "Wrong password";                                                     
                                                 } else if (!strcmp (tcn->getUserName (), "root")) { // root is changing password for another user
                                                     // check if user exists with getUserHomeDirectory
-                                                    Cstring<255> homeDirectory = userManagement.getHomeDirectory (argv [1]);
+                                                    Cstring<255> homeDirectory = userManagement->getHomeDirectory (argv [1]);
                                                     if (homeDirectory == "")       
                                                         return "User does not exist";
                                                 } else {
@@ -161,7 +167,7 @@ String telnetCommandHandlerCallback (int argc, char *argv [], telnetServer_t::te
                                             if (strcmp (password1, password2))
                                                 return "\r\nPasswords do not match";
                                             // change password
-                                            if (userManagement.passwd (forUser, password1))
+                                            if (userManagement->passwd (forUser, password1))
                                                 return "\r\nPassword changed";
                                             else
                                                 return "\r\nError changing password";  
@@ -173,34 +179,43 @@ String telnetCommandHandlerCallback (int argc, char *argv [], telnetServer_t::te
 
 
 void setup () {
-  Serial.begin (115200);
-
-  WiFi.begin ("YOUR_SSID", "YOUR_PASSWORD");
+    Serial.begin (115200);
 
 
-  // 6️⃣ Create Telnet server instance with user-defined callback functions for login and handling commands
-  telnetServer = new (std::nothrow) telnetServer_t (TSFS, getUserHomeDirectoryCallback, telnetCommandHandlerCallback);  // optional arguments:
-                                                                                                                        // Cstring<255> (*getUserHomeDirectory) (const Cstring<64>& userName, const Cstring<64>& password) = NULL
-                                                                                                                        // String (*telnetCommandHandlerCallback) (int argc, char *argv [], telnetConnection_t *tcn) = NULL
-                                                                                                                        // int serverPort = 23
-                                                                                                                        // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL
-                                                                                                                        // bool runListenerInItsOwnTask = true
-                                                        
-  // Check if Telnet server instance is created && Telnet server is running
-  if (telnetServer && *telnetServer)
-    Serial.println ("Telnet server started");
-  else
-    Serial.println ("Telnet server did not start");
-
-  // Use Telent client to connect to ESP32's IP address
-  while (WiFi.localIP () == IPAddress (0, 0, 0, 0)) { // wait until we get IP from router's DHCP
-      delay (1000); 
-      Serial.println ("   ."); 
-  } 
-  Serial.print ("Got IP addess: "); Serial.println (WiFi.localIP ());
+    // 5️⃣ Mount file system and create thread-safe file system wrapper arround it (usernames and password are stored in files)
+    LittleFS.begin (true);  // Or SPIFFS or FFat or SD ...
 
 
-  // ...
+    // 6️⃣ Create userManagement instance
+    userManagement = new (std::nothrow) userManagement_t (TSFS);
+    
+
+    WiFi.begin ("YOUR_SSID", "YOUR_PASSWORD");
+
+
+    // 7️⃣ Create Telnet server instance with user-defined callback functions for login and handling commands
+    telnetServer = new (std::nothrow) telnetServer_t (TSFS, getUserHomeDirectoryCallback, telnetCommandHandlerCallback);  // optional arguments:
+                                                                                                                            // Cstring<255> (*getUserHomeDirectory) (const Cstring<64>& userName, const Cstring<64>& password) = NULL
+                                                                                                                            // String (*telnetCommandHandlerCallback) (int argc, char *argv [], telnetConnection_t *tcn) = NULL
+                                                                                                                            // int serverPort = 23
+                                                                                                                            // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL
+                                                                                                                            // bool runListenerInItsOwnTask = true
+                                                            
+    // Check if Telnet server instance is created && Telnet server is running
+    if (telnetServer && *telnetServer)
+        Serial.println ("Telnet server started");
+    else
+        Serial.println ("Telnet server did not start");
+
+    // Use Telent client to connect to ESP32's IP address
+    while (WiFi.localIP () == IPAddress (0, 0, 0, 0)) { // wait until we get IP from router's DHCP
+        delay (1000); 
+        Serial.println ("   ."); 
+    } 
+    Serial.print ("Got IP addess: "); Serial.println (WiFi.localIP ());
+
+
+    // ...
 }
 
 void loop () {
