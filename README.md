@@ -14,7 +14,7 @@ Thread-safe infrastructure - integrates with thread-safe STL, file system wrappe
 
 Lightweight and ESP32-optimized - minimal overhead, designed specifically for Arduino-based ESP32 environments.
 
-HTTP server - supports dynamic handlers, static content, file content (including .gz), REST-style endpoints and WebSockets.
+HTTP server - supports dynamic handlers, static content, file content (including .gz) and WebSockets.
 
 FTP server - active or pasive file transfers with safe access to ESP32 file systems.
 
