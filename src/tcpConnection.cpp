@@ -108,6 +108,8 @@ int tcpConnection_t::recv (void *buf, size_t len) {
                 case   0:   // connection closed by peer
                             cout << ( dmesgQueue << "[tcpConn] " << "connection closed by peer" );
                             return 0;
+                case 104:   // Connection reset by peer, don't log
+                            [[fallthrough]];
                 case 128:   // ENOTSOCK (or the client closed the connection), don't log
                             return -1;
                 default:
@@ -171,6 +173,8 @@ int tcpConnection_t::recvString (char *buf, size_t len, const char *endingString
                 case   0:   // connection closed by peer
                             cout << ( dmesgQueue << "[tcpConn] " << "connection closed by peer" );
                             return 0;
+                case 104:   // Connection reset by peer, don't log
+                            [[fallthrough]];
                 case 128:   // ENOTSOCK (or the client closed the connection), don't log
                             return -1;
                 default:
@@ -217,6 +221,8 @@ int tcpConnection_t::peek (void *buf, size_t len) {
             case   0:   // connection closed by peer
                         cout << ( dmesgQueue << "[tcpConn] " << "connection closed by peer" );
                         return -1;
+            case 104:   // Connection reset by peer, don't log
+                        [[fallthrough]];
             case 128:   // ENOTSOCK (or the client closed the connection), don't log
                         return -1;
             default:
@@ -259,6 +265,8 @@ int tcpConnection_t::sendBlock (void *buf, size_t len) {
                 case   0:   // connection closed by peer
                             cout << ( dmesgQueue << "[tcpConn] " << "connection closed by peer" );  
                             return 0;
+                case 104:   // Connection reset by peer, don't log
+                            [[fallthrough]];
                 case 128:   // ENOTSOCK (or the client closed the connection), don't log
                             return -1;
                 default:

@@ -31,14 +31,18 @@
         #define DMESG_MAX_MESSAGE_LENGTH 88     // max length of each message
     #endif
     #ifndef DMESG_CIRCULAR_QUEUE_LENGTH
-        #define DMESG_CIRCULAR_QUEUE_LENGTH 42 // how may massages we keep on circular queue
+        // #if CONFIG_IDF_TARGET_ESP32S2
+            #define DMESG_CIRCULAR_QUEUE_LENGTH 21 // how may massages we keep on circular queue, ESP32 S2 has limited memory
+        // #else
+        //     #define DMESG_CIRCULAR_QUEUE_LENGTH 42 // how may massages we keep on circular queue
+        // #endif
     #endif
 
 
     // keep the following information for each entry 
     struct dmesgQueueEntry_t {
         unsigned long milliseconds;
-        time_t        time;
+        time_t time;
         Cstring<DMESG_MAX_MESSAGE_LENGTH> message; 
 
         template<typename T>
@@ -125,6 +129,19 @@
             return *this;
         }
 
+        // IPAddress
+
+        inline dmesgQueueEntry_t& operator << (const IPAddress& ip) {
+            this->message += ip [0];
+            this->message += '.';
+            this->message += ip [1];
+            this->message += '.';
+            this->message += ip [2];
+            this->message += '.';
+            this->message += ip [3];
+            return *this;
+        }
+
     };
 
 
@@ -161,26 +178,24 @@
                 #endif
                 */
 
-                #if CONFIG_FREERTOS_UNICORE // CONFIG_FREERTOS_UNICORE == 1 => 1 core ESP32
-                    this->operator << ("[" ESP32TYPE "] CPU0 reset reason: ") << __resetReason__ (rtc_get_reset_reason (0));
-                #else // CONFIG_FREERTOS_UNICORE == 0 => 2 core ESP32
-                    this->operator << ("[" ESP32TYPE "] CPU0 reset reason: ") << __resetReason__ (rtc_get_reset_reason (0));
-                    this->operator << ("[" ESP32TYPE "] CPU1 reset reason: ") << __resetReason__ (rtc_get_reset_reason (1));
-                #endif            
+                (*this) << "[" ESP32TYPE "] reset reason: " << __resetReason__ ( esp_reset_reason () );
         
-                this->operator << ("[" ESP32TYPE "] wakeup reason: ") << __wakeupReason__ ();
+                (*this) << "[" ESP32TYPE "] wakeup reason: " << __wakeupReason__ ();
 
-                this->operator << ("[" ESP32TYPE "] free heap at startup: ") << esp_get_free_heap_size ();
+                (*this) << "[" ESP32TYPE "] free heap at startup: " << esp_get_free_heap_size () << " bytes";
                 if (heap_caps_get_free_size (MALLOC_CAP_SPIRAM) == 0 && psramInit ())
-                    this->operator << ("[" ESP32TYPE "] free PSRAM at startup: ") << heap_caps_get_free_size (MALLOC_CAP_SPIRAM);
+                    (*this) << "[" ESP32TYPE "] free PSRAM at startup: " << heap_caps_get_free_size (MALLOC_CAP_SPIRAM) << " bytes";
                 else
-                    this->operator << ("[" ESP32TYPE "] PSRAM not installed");
+                    (*this) << "[" ESP32TYPE "] PSRAM not installed";
 
                 time_t t = time (NULL);
-                if (t > 1748500189)
-                    this->operator << ("[time] internal RTC: ") << t;
-                else
-                    this->operator << ("[time] internal RTC time unknown");
+                if (t > 1600000000) { // 1600000000 ~2020
+                    struct tm st;
+                    gmtime_r (&t, &st);
+                    (*this) << "[time] internal RTC at startup: " << st << " UTC";
+                } else {
+                    (*this) << "[time] internal RTC time unknown at startup";
+                }
             }
 
             inline dmesgQueueEntry_t& operator << (const char *value) {
@@ -303,30 +318,37 @@
                 return r;
             }
 
+            // IPAddress
+
+            inline dmesgQueueEntry_t& operator << (const IPAddress& ip) {
+                threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::Lock ();
+                char buf [20]; // [INET_ADDRSTRLEN];
+                sprintf (buf, "%i.%i.%i.%i", ip [0], ip [1], ip [2], ip [3]);
+                threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::push_back ( { millis (), time (NULL), buf } );
+                dmesgQueueEntry_t& r = threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::back ();
+                threadSafeCircularQueue<dmesgQueueEntry_t, maxSize>::Unlock ();
+                return r;
+            }
 
         private:
 
             // returns reset reason (this may help with debugging)
-            const char *__resetReason__ (RESET_REASON reason) {
+            const char *__resetReason__ (esp_reset_reason_t reason) {
                 switch (reason) {
-                    case 1:  return "POWERON_RESET - 1, Vbat power on reset";
-                    case 3:  return "SW_RESET - 3, Software reset digital core";
-                    case 4:  return "OWDT_RESET - 4, Legacy watch dog reset digital core";
-                    case 5:  return "DEEPSLEEP_RESET - 5, Deep Sleep reset digital core";
-                    case 6:  return "SDIO_RESET - 6, Reset by SLC module, reset digital core";
-                    case 7:  return "TG0WDT_SYS_RESET - 7, Timer Group0 Watch dog reset digital core";
-                    case 8:  return "TG1WDT_SYS_RESET - 8, Timer Group1 Watch dog reset digital core";
-                    case 9:  return "RTCWDT_SYS_RESET - 9, RTC Watch dog Reset digital core";
-                    case 10: return "INTRUSION_RESET - 10, Instrusion tested to reset CPU";
-                    case 11: return "TGWDT_CPU_RESET - 11, Time Group reset CPU";
-                    case 12: return "SW_CPU_RESET - 12, Software reset CPU";
-                    case 13: return "RTCWDT_CPU_RESET - 13, RTC Watch dog Reset CPU";
-                    case 14: return "EXT_CPU_RESET - 14, for APP CPU, reseted by PRO CPU";
-                    case 15: return "RTCWDT_BROWN_OUT_RESET - 15, Reset when the vdd voltage is not stable";
-                    case 16: return "RTCWDT_RTC_RESET - 16, RTC Watch dog reset digital core and rtc module";
-                    default: return "RESET REASON UNKNOWN";
+                    case ESP_RST_UNKNOWN:   return "UNKNOWN - 0, Reset reason can not be determined";
+                    case ESP_RST_POWERON:   return "POWERON_RESET - 1, Vbat power on reset";
+                    case ESP_RST_EXT:       return "EXT_RESET - 2, Reset by external pin";
+                    case ESP_RST_SW:        return "SW_RESET - 3, Software reset via esp_restart";
+                    case ESP_RST_PANIC:     return "PANIC_RESET - 4, Software reset due to exception/panic";
+                    case ESP_RST_INT_WDT:   return "INT_WDT_RESET - 5, Interrupt watchdog reset";
+                    case ESP_RST_TASK_WDT:  return "TASK_WDT_RESET - 6, Task watchdog reset";
+                    case ESP_RST_WDT:       return "WDT_RESET - 7, Other watchdog reset";
+                    case ESP_RST_DEEPSLEEP: return "DEEPSLEEP_RESET - 8, Wakeup from deep sleep";
+                    case ESP_RST_BROWNOUT:  return "BROWNOUT_RESET - 9, Brownout reset (software or hardware)";
+                    case ESP_RST_SDIO:      return "SDIO_RESET - 10, Reset over SDIO";
+                    default:                return "RESET REASON UNKNOWN";
                 }
-            } 
+            }
 
             // returns wakeup reason (this may help with debugging)
             const char *__wakeupReason__ () {

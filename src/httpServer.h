@@ -107,9 +107,9 @@
 
     // ----- TUNING PARAMETERS -----
 
-    #define HTTP_CONNECTION_STACK_SIZE (6 * 1024)
+    #define HTTP_CONNECTION_STACK_SIZE (5 * 1024 + 512)
     #define HTTP_BUFFER_SIZE 1440 // optimal TCP payload: MTU = 1500 bytes, TCP header = 20 bytes, IPv6 header = 40 bytes: 1500 - 20 - 40 = 1440
-    #define HTTP_CONNECTION_TIME_OUT 15
+    #define HTTP_CONNECTION_TIME_OUT 3
     #define HTTP_REPLY_STATUS_MAX_LENGTH 32
     #define HTTP_REPLY_HEADER_MAX_LENGTH 300
     #define HTTP_WS_FRAME_MAX_SIZE 1440
@@ -287,7 +287,17 @@
         tcpConnection_t *__createConnectionInstance__ (int connectionSocket, char *clientIP, char *serverIP) override;
 
         // accept any connection, the client will get notified in __createConnectionInstance__
-        inline tcpConnection_t *accept () __attribute__((always_inline)) { return tcpServer_t::accept (); }
+        inline tcpConnection_t *accept () __attribute__((always_inline)) { 
+            if (heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT) < HTTP_CONNECTION_STACK_SIZE) { 
+                // There is not a memory block large enough evailable to start new task that would handle the new connection.
+                // If we ::accept () the connection now we would only have to report503 "HTTP/1.0 503 Service unavailable
+                // to the client later. But if we don't call ::accept () now the incoming connection will wait for a while,
+                // and perhaps get ::acceptted () a few momemnts later 
+                return NULL;
+            } else {
+                return tcpServer_t::accept (); 
+            }
+        }
 
     };
 

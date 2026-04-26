@@ -1,1 +1,1 @@
-#define VERSION_OF_SERVERS "SRV32-4.00-beta" // development / release
+#define VERSION_OF_SERVERS "MNS lib 1.0.0 rel" // development / release

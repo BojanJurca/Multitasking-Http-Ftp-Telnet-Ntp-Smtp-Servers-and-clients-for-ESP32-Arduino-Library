@@ -8,7 +8,7 @@
   This library is based on Let's make a NTP Client in C: https://lettier.github.io/posts/2016-04-26-lets-make-a-ntp-client-in-c.html
   which I'm keeping here as close to the original as possible due to its comprehensive explanation.
 
-  March 12, 2026, Bojan Jurca
+  April 27, 2026, Bojan Jurca
 
 */
 
@@ -25,25 +25,30 @@ ntpClient_t::ntpClient_t () {}
 ntpClient_t::ntpClient_t (const char *ntpServer0,
                           const char *ntpServer1,
                           const char *ntpServer2) {
-    strncpy (__ntpServer__ [0], ntpServer0, sizeof (__ntpServer__ [0]));
-    if (ntpServer1)
-        strncpy (__ntpServer__ [1], ntpServer1, sizeof (__ntpServer__ [1]));
-    if (ntpServer2)
-        strncpy (__ntpServer__ [2], ntpServer2, sizeof (__ntpServer__ [2]));
+    strncpy (__getNtpServer__ () [0], ntpServer0, sizeof (__getNtpServer__ () [0]));
+    __getNtpServer__ () [0][sizeof (__getNtpServer__ () [0]) - 1] = '\0';
+    if (ntpServer1) {
+        strncpy (__getNtpServer__ () [1], ntpServer1, sizeof (__getNtpServer__ () [1]));
+        __getNtpServer__ () [1][sizeof (__getNtpServer__ () [1]) - 1] = '\0';
+    }
+    if (ntpServer2) {
+        strncpy (__getNtpServer__ () [2], ntpServer2, sizeof (__getNtpServer__ () [2]));
+        __getNtpServer__ () [2][sizeof (__getNtpServer__ () [2]) - 1] = '\0';
+    }
 }
 
 // synchronizes time with NTP server, returns error message or "" if OK
 const char *ntpClient_t::syncTime () {
     const char *s;
-    if (!*(s = syncTime (__ntpServer__ [0])))
+    if (!*(s = syncTime (__getNtpServer__ () [0])))
         return "";
 
     delay (25);
-    if (*__ntpServer__ [1] && !* (s = syncTime (__ntpServer__ [1])))
+    if (*__getNtpServer__ () [1] && !* (s = syncTime (__getNtpServer__ () [1])))
         return "";
 
     delay (25);
-    if (*__ntpServer__ [2] && !* (s = syncTime (__ntpServer__ [2])))
+    if (*__getNtpServer__ () [2] && !* (s = syncTime (__getNtpServer__ () [2])))
         return "";
 
     return "NTP servers are not available";
@@ -51,9 +56,9 @@ const char *ntpClient_t::syncTime () {
 
 // synchronizes time with NTP server, returns error message or "" if OK
 const char *ntpClient_t::syncTime (int ntpServerIndex) {
-    if (ntpServerIndex < 0 || ntpServerIndex > 2 || *__ntpServer__ [ntpServerIndex])
+    if (ntpServerIndex < 0 || ntpServerIndex > 2 || *__getNtpServer__ () [ntpServerIndex])
         return "invalid NTP server";
-    return syncTime (__ntpServer__ [ntpServerIndex]);
+    return syncTime (__getNtpServer__ () [ntpServerIndex]);
 }
 
 // synchronizes time with NTP server, returns error message or "" if OK
@@ -325,7 +330,11 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
     struct timeval txTm = { (time_t) (packet.txTm_s - NTP_TIMESTAMP_DELTA), 0 };
     settimeofday (&txTm, NULL);
 
-    __startUpTime__ += (time_t) (packet.txTm_s - NTP_TIMESTAMP_DELTA) - oldTime; // += newTime - oldTime
+    time_t newTime = (time_t) (packet.txTm_s - NTP_TIMESTAMP_DELTA);
+    if (__getStartUpTime__ () == 0)
+        __getStartUpTime__ () = newTime; // define uptime origin
+    else
+        __getStartUpTime__ () += newTime - oldTime; // adjust uptime if clock drifted
     
     cout << ( dmesgQueue << "[NTP] time synchronized with " << ntpServerName << " (" << ipstr << ")" );
     return "";
@@ -337,7 +346,10 @@ const char *ntpClient_t::setTime (const time_t newTime) {
     struct timeval txTm = { newTime, 0 };
     settimeofday (&txTm, NULL);
 
-    __startUpTime__ += newTime - oldTime;
+    if (__getStartUpTime__ () == 0)
+        __getStartUpTime__ () = newTime; // define uptime origin
+    else
+        __getStartUpTime__ () += newTime - oldTime; // adjust uptime if clock drifted
 
     return "";
 }

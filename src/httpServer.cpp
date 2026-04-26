@@ -403,7 +403,11 @@ void httpServer_t::webSocket_t::__runConnectionTask__ () {
         }
 
         // connection: keep-alive?
-        keepAlive = (strstr (__httpRequestAndReplyBuffer__, "Connection: keep-alive") != NULL);
+        #if CONFIG_IDF_TARGET_ESP32S2
+            keepAlive = false; // ESP32 S2 has limited memory
+        #else
+            keepAlive = (strstr (__httpRequestAndReplyBuffer__, "Connection: keep-alive") != NULL);
+        #endif
 
         // 2. is it a websocket request?
         if (strstr (__httpRequestAndReplyBuffer__, "Upgrade: websocket")) {
@@ -498,6 +502,13 @@ void httpServer_t::webSocket_t::__runConnectionTask__ () {
                 return;
             }
 
+            #if CONFIG_IDF_TARGET_ESP32S2
+                setHttpReplyHeaderField ("Connection", "close"); // ESP32 S2 has limited memory
+            #else
+                if (heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT) < HTTP_CONNECTION_STACK_SIZE) // there is not a memory block large enough evailable to start new task that would handle the new connection
+                    setHttpReplyHeaderField ("Connection", "close");
+            #endif
+
             // construct the whole HTTP reply from differrent pieces and send it to the client (browser)
             // if the reply is short enough send it in one block, 
             // if not send header first and then the content, so we won't have to move hugh blocks of data
@@ -558,7 +569,7 @@ void httpServer_t::webSocket_t::__runConnectionTask__ () {
         // if we are running out of ESP32's resources we won't try to keep the connection alive, this would slow down the server a bit but it would let still it handle requests from different clients
         if (getSocket () >= LWIP_SOCKET_OFFSET + MEMP_NUM_NETCONN - 2)  // running out of sockets
             return;
-        if (heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT) < 2 * HTTP_CONNECTION_STACK_SIZE) // there is not a memory block large enough evailable to start 2 new tasks that would handle the connection
+        if (heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT) < HTTP_CONNECTION_STACK_SIZE) // there is not a memory block large enough evailable to start new tasks that would handle the new connection
             return;
 
         // restore the default values of member variables for the next HTTP request on this connection                              

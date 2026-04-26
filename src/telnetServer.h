@@ -328,9 +328,9 @@
 
         #ifndef TELNET_CONNECTION_STACK_SIZE
                 #ifdef __THREAD_SAFE_FS__
-                        #define TELNET_CONNECTION_STACK_SIZE (10 * 1024)
+                        #define TELNET_CONNECTION_STACK_SIZE (7 * 1024 + 512)
                 #else
-                        #define TELNET_CONNECTION_STACK_SIZE (7 * 1024)
+                        #define TELNET_CONNECTION_STACK_SIZE (6 * 1024 + 512)
                 #endif
         #endif
 
@@ -952,7 +952,6 @@
                                 __lastHighWaterMark__ = highWaterMark;
                         }
 
-
                 } // endless loop of reading and executing commands
         endConnection:
 
@@ -1262,7 +1261,7 @@
                 }
 
         tcpConnection_t *telnetServer_t::__createConnectionInstance__ (int connectionSocket, char *clientIP, char *serverIP) {
-                #define telnetServiceUnavailableReply "Telnet service is currently unavailable.\r\nFree heap: %lu bytes\r\nFree heap in one piece: %u bytes\r\n"
+                #define telnetServiceUnavailableReply "Telnet service is currently unavailable.\r\nFree heap: %lu bytes\r\nMax free heap in one block: %u bytes\r\n"
 
                 telnetConnection_t *connection;
                 
@@ -2001,6 +2000,11 @@
                                                 } 
 
                                                 if (*thisIP && *remoteIP) {
+                                                        if (netTraff [sockfd].bytesReceived < lastNetTraff [sockfd].bytesReceived) // new connection on this socket
+                                                                lastNetTraff [sockfd].bytesReceived = 0;
+                                                        if (netTraff [sockfd].bytesSent < lastNetTraff [sockfd].bytesSent) // new connection on this socket
+                                                                lastNetTraff [sockfd].bytesSent = 0;
+
                                                         sprintf (buf, "\r\n %2i %-39s%5i %-39s%5i %9lu %9lu", sockfd, thisIP, thisPort, remoteIP, remotePort, netTraff [sockfd].bytesReceived - lastNetTraff [sockfd].bytesReceived, netTraff [sockfd].bytesSent - lastNetTraff [sockfd].bytesSent);
                                                         if (sendString (buf) <= 0) 
                                                         return "\r";
@@ -2217,47 +2221,45 @@
         #if TELNET_CAT_COMMAND == 1
                 Cstring<300> telnetServer_t::telnetConnection_t::__catFileToClient__ (char *fileName) {
                         if (!__fileSystem__)                                                                    return "Error, file system was not passed to the Telnet server constructor";
-                        if (!__fileSystem__->mounted ())                                                             return "File system not mounted. You may have to format flash disk first";
+                        if (!__fileSystem__->mounted ())                                                        return "File system not mounted. You may have to format flash disk first";
                         Cstring<255> fullPath = __fileSystem__->makeFullPath (fileName, __workingDirectory__);
-                        if (fullPath == "" || !__fileSystem__->isFile (fullPath))                                    return "Invalid file name";
-                        if (!__fileSystem__->userHasRightToAccessFile (fullPath, __homeDirectory__))                 return "Access denyed";
-
-                        char buff [1440];
-                        *buff = 0;
+                        if (fullPath == "" || !__fileSystem__->isFile (fullPath))                               return "Invalid file name";
+                        if (!__fileSystem__->userHasRightToAccessFile (fullPath, __homeDirectory__))            return "Access denyed";
                         
                         threadSafeFS::File f = __fileSystem__->open (fullPath, FILE_READ); 
-                        if (f) {
-                                int i = strlen (buff);
-                                while (f.available ()) {
+                        if (!f || f.isDirectory ())                                                             return Cstring<300> ("Can't read ") + fullPath;
+
+                        char *buff = (char *) malloc (1440);
+                        if (!buff)                                                                              return "Out of memory";
+                        *buff = 0;
+
+                        int i = strlen (buff);
+                        while (f.available ()) {
                                 switch (*(buff + i) = f.read ()) {
-                                        case '\r':  // ignore
-                                                break;
-                                        case '\n':  // LF-CRLF conversion
-                                                *(buff + i ++) = '\r'; 
-                                                *(buff + i ++) = '\n';
-                                                break;
+                                        case '\r':      // ignore
+                                                        break;
+                                        case '\n':      // LF-CRLF conversion
+                                                        *(buff + i ++) = '\r'; 
+                                                        *(buff + i ++) = '\n';
+                                                        break;
                                         default:
-                                                i++;                  
+                                                        i++;                  
                                 }
                                 if (i >= sizeof (buff) - 2) { 
                                         if (sendBlock (buff, i) <= 0) { 
-                                                f.close (); 
+                                                free (buff); 
                                                 return "\r"; 
                                         }
                                         i = 0; 
                                 }
-                                }
-                                if (i) { 
+                        }
+                        if (i) { 
                                 if (sendBlock (buff, i) <= 0) { 
-                                        f.close (); 
+                                        free (buff); 
                                         return "\r"; 
                                 }
-                                }
-                        } else {
-                                f.close (); 
-                                return Cstring<300> ("Can't read ") + fullPath;
                         }
-                        f.close ();
+
                         return "\r"; // different than "" to let the calling function know that the command has been processed
                 }
 
@@ -2691,27 +2693,28 @@
 
         #if TELNET_CP_COMMAND == 1
                 Cstring<300> telnetServer_t::telnetConnection_t::__cp__ (char *srcFileName, char *dstFileName) { 
-                        if (!__fileSystem__)                                                                    return "Error, file system was not passed to the Telnet server constructor";
-                        if (!__fileSystem__->mounted ())                                                             return "File system not mounted. You may have to format flash disk first";
+                        if (!__fileSystem__)                                                                            return "Error, file system was not passed to the Telnet server constructor";
+                        if (!__fileSystem__->mounted ())                                                                return "File system not mounted. You may have to format flash disk first";
                         Cstring<255> fullPath1 = __fileSystem__->makeFullPath (srcFileName, __workingDirectory__);
-                        if (fullPath1 == "")                                                                        return "Invalid source file name";
-                        if (!__fileSystem__->userHasRightToAccessFile (fullPath1, __homeDirectory__))                return "Access to source file denyed";
+                        if (fullPath1 == "")                                                                            return "Invalid source file name";
+                        if (!__fileSystem__->userHasRightToAccessFile (fullPath1, __homeDirectory__))                   return "Access to source file denyed";
                         Cstring<255> fullPath2 = __fileSystem__->makeFullPath (dstFileName, __workingDirectory__);
-                        if (fullPath2 == "")                                                                        return "Invalid destination file name";
-                        if (!__fileSystem__->userHasRightToAccessFile (fullPath2, __homeDirectory__))                return "Access destination file denyed";
+                        if (fullPath2 == "")                                                                            return "Invalid destination file name";
+                        if (!__fileSystem__->userHasRightToAccessFile (fullPath2, __homeDirectory__))                   return "Access destination file denyed";
 
                         threadSafeFS::File f1 = __fileSystem__->open (fullPath1, FILE_READ);
-                        if (!f1)                                                                                    return Cstring<300> ("Can't read ") + fullPath1;
-                        if (f1.isDirectory ()) { f1.close ();                                                       return "Can't copy directory"; }
+                        if (!f1)                                                                                        return Cstring<300> ("Can't read ") + fullPath1;
+                        if (f1.isDirectory ())                                                                          return "Can't copy directory";
                         threadSafeFS::File f2 = __fileSystem__->open (fullPath2, FILE_WRITE);
-                        if (!f2) { f1.close ();                                                                     return Cstring<300> ("Can't write ") + fullPath2; }
+                        if (!f2)                                                                                        return Cstring<300> ("Can't write ") + fullPath2;
                         Cstring<300> retVal = "File copied";
 
                         int bytesReadTotal = 0;
                         int bytesWrittenTotal = 0;
-                        char buff [1024];
+                        char *buff = (char *) malloc (1024);
+                        if (!buff)                                                                                      return "Out of memory";
                         do {
-                                int bytesReadThisTime = f1.read ((uint8_t *) buff, sizeof (buff));
+                                int bytesReadThisTime = f1.read ((uint8_t *) buff, 1024);
                                 if (bytesReadThisTime == 0) break; // finished, success
                                 bytesReadTotal += bytesReadThisTime;
 
@@ -2720,8 +2723,7 @@
 
                                 if (bytesWrittenThisTime != bytesReadThisTime) { retVal = Cstring<300> ("Can't write ") + fullPath2; break; }
                         } while (true);
-                        f2.close ();
-                        f1.close ();
+                        free (buff);
                         return retVal;
                 }
         #endif

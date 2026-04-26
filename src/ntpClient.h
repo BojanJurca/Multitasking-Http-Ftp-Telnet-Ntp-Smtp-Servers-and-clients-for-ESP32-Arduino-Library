@@ -8,7 +8,7 @@
   This library is based on Let's make a NTP Client in C: https://lettier.github.io/posts/2016-04-26-lets-make-a-ntp-client-in-c.html
   which I'm keeping here as close to the original as possible due to its comprehensive explanation.
 
-  March 12, 2026, Bojan Jurca
+  April 27, 2026, Bojan Jurca
 
 */
 
@@ -36,9 +36,19 @@
   class ntpClient_t {
 
     private:
-      static inline char __ntpServer__ [3][255] = {};     // DNS host name may have max 253 characters
 
-      static inline volatile time_t __startUpTime__ = 0;  // singleton
+      // Meyers singleton - 
+      inline char (&__getNtpServer__ ()) [3][255] {
+          static char ntpServer [3][255] = {}; // DNS host name may have max 253 characters
+          return ntpServer;
+      }
+
+      // Meyers singleton
+      inline time_t& __getStartUpTime__ () {
+          static time_t startUpTime = 0;
+          return startUpTime;
+      }
+
 
     public:
       ntpClient_t ();
@@ -81,11 +91,11 @@
               char buffer [MAX_ETC_NTP_CONF_SIZE] = "\n";
               if (fileSystem.readConfiguration (buffer + 1, sizeof (buffer) - 3, "/etc/ntp.conf")) {
                   strcat (buffer, "\n");
-                  __ntpServer__ [0][0] = __ntpServer__ [1][0] = __ntpServer__ [2][0] = 0;
+                  __getNtpServer__ () [0][0] = __getNtpServer__ () [1][0] = __getNtpServer__ () [2][0] = 0;
                   char *p;                    
-                  if ((p = strstr (buffer, "\nserver1"))) sscanf (p + 8, "%*[ =]%253[0-9A-Za-z.-]", __ntpServer__ [0]);
-                  if ((p = strstr (buffer, "\nserver2"))) sscanf (p + 8, "%*[ =]%253[0-9A-Za-z.-]", __ntpServer__ [1]);
-                  if ((p = strstr (buffer, "\nserver3"))) sscanf (p + 8, "%*[ =]%253[0-9A-Za-z.-]", __ntpServer__ [2]);
+                  if ((p = strstr (buffer, "\nserver1"))) sscanf (p + 8, "%*[ =]%253[0-9A-Za-z.-]", __getNtpServer__ () [0]);
+                  if ((p = strstr (buffer, "\nserver2"))) sscanf (p + 8, "%*[ =]%253[0-9A-Za-z.-]", __getNtpServer__ () [1]);
+                  if ((p = strstr (buffer, "\nserver3"))) sscanf (p + 8, "%*[ =]%253[0-9A-Za-z.-]", __getNtpServer__ () [2]);
               } else {
                   cout << ( dmesgQueue << "[NTP] " "error reading /etc/ntp.conf" );
               }
@@ -100,8 +110,8 @@
 
       time_t getUpTime () { 
         time_t t = time (NULL);
-        if (__startUpTime__ <= t)
-            return t - __startUpTime__;
+        if (__getStartUpTime__ () <= t)
+            return t - __getStartUpTime__ ();
         else
           return millis () / 1000; // wrong time settings, this would probably be the best answer
       }
