@@ -19,12 +19,10 @@ String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpCo
   #define httpRequestIs(X) (strstr(httpRequest,X)==httpRequest)
 
 
-  // 1️⃣ Respond to OPTIONS request with setting Access-Control-Allow-Origin and Access-Control-Allow-Methods header fields in HTTP reply
-  if (httpRequestIs ("OPTIONS ")) {
-    hcn->setHttpReplyHeaderField ("Access-Control-Allow-Origin", "*");  
-    hcn->setHttpReplyHeaderField ("Access-Control-Allow-Methods", "*");
-    return "OK"; // whatever
-  }
+  // 1️⃣ Allow Cross Origin Resource Sharing with setting Access-Control-Allow-Origin and Access-Control-Allow-Methods header fields in HTTP reply and respond to OPTIONS request
+  hcn->setHttpReplyHeaderField ("Access-Control-Allow-Origin", "*");  
+  hcn->setHttpReplyHeaderField ("Access-Control-Allow-Methods", "*");
+  if (httpRequestIs ("OPTIONS ")) return "OK"; // whatever
 
 
   // REST API interface
