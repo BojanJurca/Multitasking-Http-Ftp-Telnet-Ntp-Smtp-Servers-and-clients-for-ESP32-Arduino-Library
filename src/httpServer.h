@@ -4,7 +4,7 @@
   
     This file is part of Multitasking Esp32 HTTP FTP http servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-http-servers-for-Arduino
   
-    March 12, 2026, Bojan Jurca
+    May 22, 2026, Bojan Jurca
 
 
     Classes implemented/used in this module:
@@ -131,14 +131,23 @@
 
     class httpServer_t : public tcpServer_t {
 
+        friend class httpsServer_t;
+
         public:
             class httpConnection_t;
 
-            class webSocket_t : public tcpConnection_t {
+            class webSocket_t {
 
-                friend httpServer_t;
+                friend class httpServer_t;
+                friend class httpsServer_t;
+                friend class httpConnection_t;
+                friend class httpsConnection_t;
 
                 private:
+
+                    // transport layer abstraction: tcp or ssl
+                    tcpConnection_t *__transport__ = NULL;
+
                     void *__fileSystem__ = NULL;
                     bool (webSocket_t::*__replyWithFileContentPtr__) () = NULL;
 
@@ -171,7 +180,7 @@
                     } __recvFrameState__ = EMPTY; 
 
                     // Internal helpers (implemented in .cpp)
-                    bool __sendFrame__ (byte *buffer, size_t bufferSize, byte frameType);
+                    int __sendFrame__ (byte *buffer, size_t bufferSize, byte frameType);
                     static char *stristr (const char *haystack, const char *needle);
                     void __runConnectionTask__ ();
                     #ifdef __THREAD_SAFE_FS__
@@ -179,15 +188,13 @@
                     #endif
 
                 public:
-                    webSocket_t (void *FileSystem,
+                    webSocket_t (tcpConnection_t* transport,
+                                 void *FileSystem,
                                  bool (webSocket_t::*replyWithFileContentPtr) (),
-                                 int connectionSocket,
-                                 char *clientIP,
-                                 char *serverIP,
                                  String (*httpRequestHandlerCallback) (const char *httpRequest, httpConnection_t *hcn),
                                  void (*wsRequestHandlerCallback) (const char *httpRequest, webSocket_t *webSck));
 
-                    ~webSocket_t ();
+                    virtual ~webSocket_t ();
 
                     // HTTP helpers
                     char *getHttpRequest ();
@@ -197,12 +204,27 @@
                     void setHttpReplyHeaderField (Cstring<300> fieldName, Cstring<300> fieldValue);
                     void setHttpReplyCookie (Cstring<300> cookieName, Cstring<300> cookieValue, time_t expires = 0, Cstring<300> path = "/");
 
-                    // WebSocket I/O
-                    int recvBlock (void *buf, size_t len);
-                    bool sendBlock (void *buf, size_t len);
-                    bool recvString (char *buf, size_t len);
-                    bool sendString (const char *buf);
-                    int peek ();
+                    // implement entire tcpConnection_t interface (except recv... and send... which are specific for webSocket_t) through __transport__ pointer
+                    operator bool () { return __transport__; }
+
+                    virtual int recvBlock (void *buf, size_t len);
+                    virtual int sendBlock (void *buf, size_t len);
+                    virtual int recvString (char *buf, size_t len);
+                    virtual int sendString (const char *buf);
+                    virtual int peek ();
+
+                    virtual void close () { __transport__->close (); }
+
+                    int  getSocket () { return __transport__->getSocket (); }
+                    char *getClientIP () { return __transport__->getClientIP (); }
+                    char *getServerIP () { return __transport__->getServerIP (); }
+
+                    time_t getIdleTimeout () { return __transport__->getIdleTimeout (); }
+                    void setIdleTimeout (time_t seconds) { __transport__->setIdleTimeout (seconds); }
+                    void stillActive () { __transport__->stillActive (); }
+                    bool idleTimeout () { return __transport__->idleTimeout (); }
+
+                    virtual const char *cipherName () { return "none"; }
             };
 
             /*
@@ -212,11 +234,13 @@
             */
 
             class httpConnection_t : public webSocket_t {
-                using tcpConnection_t::recvBlock;
-                using tcpConnection_t::sendBlock;
-                using tcpConnection_t::recvString;
-                using tcpConnection_t::sendString;
-                using tcpConnection_t::peek;
+                // implement entire tcpConnection_t interface through __transport__ pointer
+
+                int recvBlock (void *buf, size_t len) { return __transport__->recvBlock (buf, len); }
+                int sendBlock (void *buf, size_t len) { return __transport__->sendBlock (buf, len); }
+                int recvString (char *buf, size_t len, const char *endingString) { return __transport__->recvString (buf, len, endingString); }
+                int sendString (const char *buf) { return __transport__->sendString (buf); }
+                int peek (void *buf, size_t len) { return __transport__->peek (buf, len); }
             };
 
 
@@ -292,7 +316,7 @@
                 // There is not a memory block large enough evailable to start new task that would handle the new connection.
                 // If we ::accept () the connection now we would only have to report503 "HTTP/1.0 503 Service unavailable
                 // to the client later. But if we don't call ::accept () now the incoming connection will wait for a while,
-                // and perhaps get ::acceptted () a few momemnts later 
+                // and perhaps get ::acceptted () a few moments later 
                 return NULL;
             } else {
                 return tcpServer_t::accept (); 
@@ -376,7 +400,7 @@
                             if (__httpReplyHeader__.errorFlags ()) {
                                 f.close ();
                                 cout << ( dmesgQueue << "[httpConn] " "reply header buffer too small" );
-                                tcpConnection_t::sendString (reply507);
+                                __transport__->sendString (reply507);
                                 return true;
                             }
 
@@ -406,7 +430,7 @@
                             int bytesReadThisTime = f.read ((uint8_t *) &__httpRequestAndReplyBuffer__ [httpReplyHeaderLen], bytesToReadThisTime);
 
                             __httpRequestAndReplyBuffer__ [HTTP_BUFFER_SIZE] = 0;
-                            if (tcpConnection_t::sendBlock (__httpRequestAndReplyBuffer__, httpReplyHeaderLen + bytesReadThisTime) <= 0) {
+                            if (__transport__->sendBlock (__httpRequestAndReplyBuffer__, httpReplyHeaderLen + bytesReadThisTime) <= 0) {
                                 f.close ();
                                 cout << ( dmesgQueue << "[httpConn] " "send failed" );
                                 return true;
@@ -424,7 +448,7 @@
                                     return true;
                                 }
                 
-                                if (tcpConnection_t::sendBlock (__httpRequestAndReplyBuffer__, bytesReadThisTime) <= 0) {
+                                if (__transport__->sendBlock (__httpRequestAndReplyBuffer__, bytesReadThisTime) <= 0) {
                                     f.close ();
                                     cout << ( dmesgQueue << "[httpConn] " "can't send " << fileName );
                                     return true;

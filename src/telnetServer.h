@@ -1291,8 +1291,10 @@
                         cout << ( dmesgQueue << "[telnetServer] " "can't create connection instance, out of memory" );
                         char s [128];
                         sprintf (s, telnetServiceUnavailableReply, esp_get_free_heap_size (), heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT));
+                        xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
                         send (connectionSocket, s, strlen (s), 0);
                         close (connectionSocket); // normally tcpConnection would do this but if it is not created we have to do it here since the connection was not created
+                        xSemaphoreGive (getLwIpMutex ());
                         return NULL;
                 }
 
@@ -2669,22 +2671,22 @@
                                 }         
                                 // if cursor has moved - should we scroll?
                                 {
-                                if (textCursorX - textScrollX >= __clientWindowWidth__ - 5) {
-                                        textScrollX = textCursorX - (__clientWindowWidth__ - 5) + 1; // scroll left if the cursor fell out of right client window border
-                                        redrawAllLines = true; // we need to redraw all visible lines
-                                }
-                                if (textCursorX - textScrollX < 0) {
-                                        textScrollX = textCursorX; // scroll right if the cursor fell out of left client window border
-                                        redrawAllLines = true; // we need to redraw all visible lines
-                                }
-                                if (textCursorY - textScrollY >= __clientWindowHeight__ - 2) {
-                                        textScrollY = textCursorY - (__clientWindowHeight__ - 2) + 1; // scroll up if the cursor fell out of bottom client window border
-                                        redrawAllLines = true; // we need to redraw all visible lines
-                                }
-                                if (textCursorY - textScrollY < 0) {
-                                        textScrollY = textCursorY; // scroll down if the cursor fell out of top client window border
-                                        redrawAllLines = true; // we need to redraw all visible lines
-                                }
+                                        if (textCursorX - textScrollX >= __clientWindowWidth__ - 5) {
+                                                textScrollX = textCursorX - (__clientWindowWidth__ - 5) + 1; // scroll left if the cursor fell out of right client window border
+                                                redrawAllLines = true; // we need to redraw all visible lines
+                                        }
+                                        if (textCursorX - textScrollX < 0) {
+                                                textScrollX = textCursorX; // scroll right if the cursor fell out of left client window border
+                                                redrawAllLines = true; // we need to redraw all visible lines
+                                        }
+                                        if (textCursorY - textScrollY >= __clientWindowHeight__ - 2) {
+                                                textScrollY = textCursorY - (__clientWindowHeight__ - 2) + 1; // scroll up if the cursor fell out of bottom client window border
+                                                redrawAllLines = true; // we need to redraw all visible lines
+                                        }
+                                        if (textCursorY - textScrollY < 0) {
+                                                textScrollY = textCursorY; // scroll down if the cursor fell out of top client window border
+                                                redrawAllLines = true; // we need to redraw all visible lines
+                                        }
                                 }
                         }
                         return "\r";

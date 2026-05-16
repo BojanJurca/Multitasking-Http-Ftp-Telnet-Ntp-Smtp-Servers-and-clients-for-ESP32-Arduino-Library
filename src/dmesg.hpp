@@ -31,11 +31,11 @@
         #define DMESG_MAX_MESSAGE_LENGTH 88     // max length of each message
     #endif
     #ifndef DMESG_CIRCULAR_QUEUE_LENGTH
-        // #if CONFIG_IDF_TARGET_ESP32S2
+        #if CONFIG_IDF_TARGET_ESP32S2
             #define DMESG_CIRCULAR_QUEUE_LENGTH 21 // how may massages we keep on circular queue, ESP32 S2 has limited memory
-        // #else
-        //     #define DMESG_CIRCULAR_QUEUE_LENGTH 42 // how may massages we keep on circular queue
-        // #endif
+        #else
+            #define DMESG_CIRCULAR_QUEUE_LENGTH 42 // how may massages we keep on circular queue
+        #endif
     #endif
 
 

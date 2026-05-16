@@ -706,8 +706,10 @@ tcpConnection_t *ftpServer_t::__createConnectionInstance__ (int connectionSocket
         cout << ( dmesgQueue << "[ftpServer] " << "can't create connection instance, out of memory" );
         char s [128];
         sprintf (s, ftpServiceUnavailableReply, esp_get_free_heap_size (), heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT));
+        xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
         send (connectionSocket, s, strlen (s), 0);
         close (connectionSocket);
+        xSemaphoreGive (getLwIpMutex ());
         return NULL;
     }
 

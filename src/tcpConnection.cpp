@@ -5,7 +5,7 @@
     This file is part of Multitasking HTTP, FTP, Telnet, NTP, SMTP servers and clients for ESP32 - Arduino library: https://github.com/BojanJurca/Multitasking-Http-Ftp-Telnet-Ntp-Smtp-Servers-and-clients-for-ESP32-Arduino-Library
 
 
-    February 6, 2026, Bojan Jurca
+    May 22, 2026, Bojan Jurca
 
 
     Classes implemented/used in this module
@@ -63,7 +63,7 @@ tcpConnection_t::tcpConnection_t () {
     stillActive ();
 }
 
-tcpConnection_t::tcpConnection_t (int connectionSocket, char *clientIP, char *serverIP) {
+tcpConnection_t::tcpConnection_t (int connectionSocket, const char *clientIP, const char *serverIP) {
     __connectionSocket__ = connectionSocket;
     strncpy (__clientIP__, clientIP, sizeof (__clientIP__) - 1);
     strncpy (__serverIP__, serverIP, sizeof (__serverIP__) - 1);
@@ -127,6 +127,48 @@ int tcpConnection_t::recv (void *buf, size_t len) {
     return received;
 }
 
+// send with traffic reccording
+int tcpConnection_t::send (void *buf, size_t len) {
+    int sent = -1;
+    while (sent < 0) {
+        xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
+            sent = ::send (__connectionSocket__, buf, len, 0);    
+        xSemaphoreGive (getLwIpMutex ());
+
+        if (sent <= 0)
+            switch (errno) {
+                case 107:   // ENOTCONN (all the sockets are non-blocking)
+                // case 119:   // EALREADY (all the sockets are non-blocking)
+                case  11:   // EAGAIN or EWOULDBLOCK
+                            if (idleTimeout ()) {
+                                // cout << ( dmesgQueue << "[tcpConn] " << "timeout" ); // do not log, this is a normal end of connection in httpServer
+                                return -1;
+                            } else {
+                                // continue waiting
+                                delay (25);
+                                continue;
+                            }
+                case   0:   // connection closed by peer
+                            cout << ( dmesgQueue << "[tcpConn] " << "connection closed by peer" );  
+                            return 0;
+                case 104:   // Connection reset by peer, don't log
+                            [[fallthrough]];
+                case 128:   // ENOTSOCK (or the client closed the connection), don't log
+                            return -1;
+                default:
+                            cout << ( dmesgQueue << "[tcpConn] " << "error: " << errno << " " << strerror (errno) );
+                            return -1;
+            }
+
+        stillActive ();
+
+        networkTraffic ().bytesSent += sent;
+        networkTraffic () [__connectionSocket__].bytesSent += sent;
+    } 
+
+    return sent;
+}
+
 // reads the whole block of bytes
 // returns len if OK
 //           0 if the peer closed the connection
@@ -154,40 +196,11 @@ int tcpConnection_t::recvString (char *buf, size_t len, const char *endingString
     int receivedThisTime;
 
     while (receivedTotal != len - 1) { // read blocks of incoming data
-        xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
-            receivedThisTime = ::recv (__connectionSocket__, buf + receivedTotal, len - receivedTotal - 1, 0);
-        xSemaphoreGive (getLwIpMutex ());
+        receivedThisTime = recv (buf + receivedTotal, len - receivedTotal - 1);
         if (receivedThisTime <= 0)
-            switch (errno) {
-                case 107:   // ENOTCONN (all the sockets are non-blocking)
-                // case 119:   // EALREADY (all the sockets are non-blocking)
-                case  11:   // EAGAIN or EWOULDBLOCK
-                            if (idleTimeout ()) {
-                                // cout << ( dmesgQueue << "[tcpConn] " << "timeout" ); // do not log, this is a normal end of connection in httpServer
-                                return -1;
-                            } else {
-                                // continue waiting
-                                delay (25);
-                                continue;
-                            }
-                case   0:   // connection closed by peer
-                            cout << ( dmesgQueue << "[tcpConn] " << "connection closed by peer" );
-                            return 0;
-                case 104:   // Connection reset by peer, don't log
-                            [[fallthrough]];
-                case 128:   // ENOTSOCK (or the client closed the connection), don't log
-                            return -1;
-                default:
-                            cout << ( dmesgQueue << "[tcpConn] " << "error: " << errno << " " << strerror (errno) );
-                            return -1;
-            }
+            return receivedThisTime;
 
-        stillActive ();
         receivedTotal += receivedThisTime;
-        
-        // since no semaphore is used here network traffic logging may not be completely accurate in multitaskin environment
-        networkTraffic ().bytesReceived += receivedThisTime;
-        networkTraffic () [__connectionSocket__].bytesReceived += receivedThisTime;
 
         // the following code assumes that the other side sends command or reply (according to the protocol) that ends with endingString
         buf [receivedTotal] = 0;
@@ -245,45 +258,16 @@ int tcpConnection_t::sendBlock (void *buf, size_t len) {
     size_t sentTotal = 0;
     while (sentTotal < len) {
         size_t n = min (MAX_BLOCK_SIZE, len - sentTotal);
-        xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
-            int sentThisTime = ::send (__connectionSocket__, (char *) buf + sentTotal, n, 0);    
-        xSemaphoreGive (getLwIpMutex ());
+        int sentThisTime = send ((char *) buf + sentTotal, n);    
 
         if (sentThisTime <= 0)
-            switch (errno) {
-                case 107:   // ENOTCONN (all the sockets are non-blocking)
-                // case 119:   // EALREADY (all the sockets are non-blocking)
-                case  11:   // EAGAIN or EWOULDBLOCK
-                            if (idleTimeout ()) {
-                                // cout << ( dmesgQueue << "[tcpConn] " << "timeout" ); // do not log, this is a normal end of connection in httpServer
-                                return -1;
-                            } else {
-                                // continue waiting
-                                delay (25);
-                                continue;
-                            }
-                case   0:   // connection closed by peer
-                            cout << ( dmesgQueue << "[tcpConn] " << "connection closed by peer" );  
-                            return 0;
-                case 104:   // Connection reset by peer, don't log
-                            [[fallthrough]];
-                case 128:   // ENOTSOCK (or the client closed the connection), don't log
-                            return -1;
-                default:
-                            cout << ( dmesgQueue << "[tcpConn] " << "error: " << errno << " " << strerror (errno) );
-                            return -1;
-            }
-
-        stillActive ();
+            return sentThisTime;
+    
         sentTotal += sentThisTime;
-
-        networkTraffic ().bytesSent += sentThisTime;
-        networkTraffic () [__connectionSocket__].bytesSent += sentThisTime;
 
         if (sentTotal < len) 
             delay (25);
     } 
-
     return sentTotal;
 }
 

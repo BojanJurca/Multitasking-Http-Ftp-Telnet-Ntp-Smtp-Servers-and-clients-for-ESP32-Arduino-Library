@@ -5,7 +5,7 @@
     This file is part of Multitasking HTTP, FTP, Telnet, NTP, SMTP servers and clients for ESP32 - Arduino library: https://github.com/BojanJurca/Multitasking-Http-Ftp-Telnet-Ntp-Smtp-Servers-and-clients-for-ESP32-Arduino-Library
 
   
-    February 6, 2026, Bojan Jurca
+    May 22, 2026, Bojan Jurca
 
 
     Classes implemented/used in this module:
@@ -83,18 +83,19 @@
 
         public:
             tcpConnection_t ();
-            tcpConnection_t (int connectionSocket, char *clientIP, char *serverIP);
-            ~tcpConnection_t ();
+            tcpConnection_t (int connectionSocket, const char *clientIP, const char *serverIP);
+            virtual ~tcpConnection_t ();
 
             // bool() operator to test if tcpConnection is ready
-            inline operator bool () __attribute__((always_inline)) { return __connectionSocket__ != -1; }
+            operator bool () const { return __connectionSocket__ != -1; }
 
             int recv (void *buf, size_t len);
-            int recvBlock (void *buf, size_t len);
-            int recvString (char *buf, size_t len, const char *endingString);
-            int peek (void *buf, size_t len);
-            int sendBlock (void *buf, size_t len);
-            int sendString (const char *buf);
+            int send (void *buf, size_t len);
+            virtual int recvBlock (void *buf, size_t len);
+            virtual int recvString (char *buf, size_t len, const char *endingString);
+            virtual int peek (void *buf, size_t len);
+            virtual int sendBlock (void *buf, size_t len);
+            virtual int sendString (const char *buf);
 
             void close ();
 
