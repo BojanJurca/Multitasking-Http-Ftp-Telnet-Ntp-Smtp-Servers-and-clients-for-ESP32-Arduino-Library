@@ -28,16 +28,17 @@
 threadSafeFS::FS TSFS (LittleFS);   // Or SPIFFS or FFat or SD ...
 using File = threadSafeFS::File;  
 
-#include <httpsServer.h>
-httpsServer_t *httpsServer = NULL;
-
-#include "webSessionTokens.h"
-webSessionTokens_t *webSessionTokens = NULL;
-
 
 // 2️⃣ Use NTP client to get current time - it will be needed to set web session token expiration time
 #include <ntpClient.h>
 ntpClient_t ntpClient ("1.si.pool.ntp.org", "2.si.pool.ntp.org", "3.si.pool.ntp.org");
+
+
+#include <./https/httpsServer.h>
+httpsServer_t *httpsServer = NULL;
+
+#include "webSessionTokens.h"
+webSessionTokens_t *webSessionTokens = NULL;
 
 
 // 3️⃣ Manage HTTP requests
