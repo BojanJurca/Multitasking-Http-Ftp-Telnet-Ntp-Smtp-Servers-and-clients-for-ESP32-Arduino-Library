@@ -343,12 +343,13 @@
                         *p = 0;
                         // get file name from HTTP request
                         Cstring<300>fileName = *(__httpRequestAndReplyBuffer__.c_str () + 4) == '/' ? (__httpRequestAndReplyBuffer__.c_str () + 5) : (__httpRequestAndReplyBuffer__.c_str () + 4);
+                        int q = fileName.indexOf ("?"); if (q >= 0) fileName [q] = 0;
                         if (fileName == "") fileName = "index.html";
                         fileName = Cstring<300>("/var/www/html/") + fileName.c_str ();
 
                         // if Content-type was not provided in __httpRequestHandlerCallback__ try guessing what it is
                         if (!strstr (__httpReplyHeader__.c_str (), "Content-Type")) { 
-                                    if (fileName.endsWith (".bmp"))                                        setHttpReplyHeaderField ("Content-Type", "image/bmp");
+                                 if (fileName.endsWith (".bmp"))                                        setHttpReplyHeaderField ("Content-Type", "image/bmp");
                             else if (fileName.endsWith (".css"))                                        setHttpReplyHeaderField ("Content-Type", "text/css");
                             else if (fileName.endsWith (".csv"))                                        setHttpReplyHeaderField ("Content-Type", "text/csv");
                             else if (fileName.endsWith (".gif"))                                        setHttpReplyHeaderField ("Content-Type", "image/gif");
