@@ -474,7 +474,10 @@ void httpServer_t::webSocket_t::__runConnectionTask__ () {
         // 3. will httpRequestHandlerCallback function provide (content part of) the reply?
         String httpReplyContent ("");
         if (__httpRequestHandlerCallback__) {
-            httpReplyContent = __httpRequestHandlerCallback__ (__httpRequestAndReplyBuffer__, (httpConnection_t *) this);
+            /// httpReplyContent = __httpRequestHandlerCallback__ (__httpRequestAndReplyBuffer__, (httpConnection_t *) this);
+            String tmpContent (__httpRequestHandlerCallback__ (__httpRequestAndReplyBuffer__, (httpConnection_t *) this));
+            /// httpReplyContent = tmp;
+            std::swap (httpReplyContent, tmpContent);                
             if (!httpReplyContent) { // out of memory
                 cout << ( dmesgQueue << "[httpConn] " "out of memory" );
                 __transport__->sendString (reply503);
