@@ -8,7 +8,7 @@
   This library is based on Let's make a NTP Client in C: https://lettier.github.io/posts/2016-04-26-lets-make-a-ntp-client-in-c.html
   which I'm keeping here as close to the original as possible due to its comprehensive explanation.
 
-  April 27, 2026, Bojan Jurca
+  May 22, 2026, Bojan Jurca
 
 */
 
@@ -325,18 +325,31 @@ const char *ntpClient_t::syncTime (const char *ntpServerName) {
     packet.txTm_s = ntohl (packet.txTm_s);
     packet.txTm_f = ntohl (packet.txTm_f);
 
-    time_t oldTime = time (NULL);
-    #define NTP_TIMESTAMP_DELTA 2208988800
-    struct timeval txTm = { (time_t) (packet.txTm_s - NTP_TIMESTAMP_DELTA), 0 };
-    settimeofday (&txTm, NULL);
+    struct timeval oldTime;
+    gettimeofday (&oldTime, NULL);
 
-    time_t newTime = (time_t) (packet.txTm_s - NTP_TIMESTAMP_DELTA);
+    #define NTP_TIMESTAMP_DELTA 2208988800
+    uint32_t usec = (uint64_t) packet.txTm_f * 1000000ULL / 0x100000000ULL;
+    struct timeval newTime = {
+        (time_t) (packet.txTm_s - NTP_TIMESTAMP_DELTA),
+        (suseconds_t) usec
+    };
+    settimeofday (&newTime, NULL);
+
     if (__getStartUpTime__ () == 0)
-        __getStartUpTime__ () = newTime; // define uptime origin
+        __getStartUpTime__ () = newTime.tv_sec; // define uptime origin
     else
-        __getStartUpTime__ () += newTime - oldTime; // adjust uptime if clock drifted
+        __getStartUpTime__ () += newTime.tv_sec - oldTime.tv_sec; // adjust uptime if clock drifted
     
-    cout << ( dmesgQueue << "[NTP] time synchronized with " << ntpServerName << " (" << ipstr << ")" );
+    struct timeval deltaTime;
+    timersub (&newTime, &oldTime, &deltaTime);
+    long long oldTimeMs = (long long) oldTime.tv_sec * 1000LL + (oldTime.tv_usec / 1000);
+    long long newTimeMs = (long long) newTime.tv_sec * 1000LL + (newTime.tv_usec / 1000);
+    long long deltaMs = newTimeMs - oldTimeMs;
+    if (abs (deltaMs) > 20000000)
+        cout << ( dmesgQueue << "[NTP] time synchronized with " << ntpServerName << " (" << ipstr << ")" );
+    else
+        cout << ( dmesgQueue << "[NTP] time synchronized with " << ntpServerName << " (" << ipstr << "), delta = " << deltaMs << " ms" );
     return "";
 }
 

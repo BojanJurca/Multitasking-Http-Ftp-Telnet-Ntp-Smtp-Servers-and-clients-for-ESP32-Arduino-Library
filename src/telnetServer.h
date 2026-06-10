@@ -5,7 +5,7 @@
     This file is part of Multitasking HTTP, FTP, Telnet, NTP, SMTP servers and clients for ESP32 - Arduino library: https://github.com/BojanJurca/Multitasking-Http-Ftp-Telnet-Ntp-Smtp-Servers-and-clients-for-ESP32-Arduino-Library
 
 
-    March 12, 2026, Bojan Jurca
+    May 22, 2026, Bojan Jurca
 
 
     Classes implemented/used in this module:
@@ -1830,6 +1830,10 @@
         #endif
 
         #if TELNET_IW_COMMAND == 1      
+                extern "C" {
+                        int ram_check_noise_floor (void);
+                }
+
                 const char *telnetServer_t::telnetConnection_t::__iw__ () {
                         Cstring<2048> buf;
 
@@ -1865,17 +1869,34 @@
                                 // STAtion
                                 if (netif->name [0] == 's' && netif->name [1] == 't') {
                                         if (WiFi.status () == WL_CONNECTED) {
-                                                int rssi = WiFi.RSSI ();
-                                                const char *rssiDescription = ""; if (rssi == 0) rssiDescription = "not available"; else if (rssi >= -30) rssiDescription = "excelent"; else if (rssi >= -67) rssiDescription = "very good"; else if (rssi >= -70) rssiDescription = "okay"; else if (rssi >= -80) rssiDescription = "not good"; else if (rssi >= -90) rssiDescription = "bad"; else rssiDescription = "unusable";
+                                                int rssi = WiFi.RSSI ();                // read RSSI from WiFi library
+                                                // https://forum.arduino.cc/t/esp32-wifi-link-quality-measurement/1434580?_gl=1*1dpbo3y*_up*MQ..*_ga*MTQzNjY1MjYyMi4xNzgwODU1OTkw*_ga_NEXN8H46L5*czE3ODA4NTU5OTAkbzEkZzAkdDE3ODA4NTU5OTAkajYwJGwwJGgxNzYxMDU3Nzk0
+                                                int nf = ram_check_noise_floor () / 4;  // convert noise floor to dBm
+                                                int snr = rssi - nf;                    // calculate signal-to-noise ratio [dB]
+                                                const char *rssiDescription = "";
+                                                if (nf >= 0 || rssi >= 0)
+                                                        ; // rssiDescription = "";
+                                                else if (snr < 10)
+                                                        rssiDescription = " dB (near the limit)";
+                                                else if (snr < 15)
+                                                        rssiDescription = " dB (poor)";
+                                                else if (snr < 25)
+                                                        rssiDescription = " dB (good)";
+                                                else // if (snr < 40)
+                                                        rssiDescription = " dB (excelent)";
+
                                                 buf += "\r\n           STAtion is connected to router:\r\n"
                                                         "\r\n              ipv4 addr: ";
                                                 buf += WiFi.gatewayIP ().toString ().c_str ();
                                                 // it would be nice to add IPv6 router's address here as well but it may be a challange getting it in Arduino
                                                 buf += "     RSSI: ";
                                                 buf += rssi;
-                                                buf += " dBm (";
-                                                buf += rssiDescription;
-                                                buf += ")";
+                                                buf += " dBm ";
+                                                if (*rssiDescription) {
+                                                        buf += "    SNR: ";
+                                                        buf += snr;
+                                                        buf += rssiDescription;
+                                                }
                                         } else {
                                                 buf += "\r\n           STAtion is not connected to router\r\n";
                                         }
