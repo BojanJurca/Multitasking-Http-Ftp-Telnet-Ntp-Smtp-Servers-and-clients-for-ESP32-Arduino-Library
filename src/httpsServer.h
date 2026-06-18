@@ -1,124 +1,73 @@
 /*
 
-    httpsServer.h
+    httpsServer.h 
   
-    This file is part of Multitasking Esp32 HTTP FTP http servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-http-servers-for-Arduino
+    This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
   
+
     May 22, 2026, Bojan Jurca
 
 
-    Extension of httpServer_t with WolfSSL library
+    Multitasking/thread-safe classes and functions: 
+
+        inherits from:  ─────────▶                                                                                          ┌───────────────────┐
+        uses:           •••••••••▶                                                                                           │ ntpClient_t       │
+                                                                                                                             └───────────────────┘
+                                                                                                                             ┌───────────────────┐
+                                                                                        ••••••••••••••••••••••••••••••••••••▶│ httpsClient       │
+                                                                                        •                                    └───────────────────┘
+                                                                                        •                                    ┌───────────────────┐
+                                                                                        •                           ••••••••▶│ httpClient        │
+                                                                                        •                           •        └───────────────────┘
+                                                                                        •                           •        ┌───────────────────┐
+                                                                                        •                           ••••••••▶│ smtpClient        │
+                                                                                        •                           •        └───────────────────┘
+                                                                                        •                           •                                             
+                                                                                        •                           •                             
+┌──────────────────────┐                                                                •                  ┌────────•──────────┐                  
+│ tcpServer_t          │••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••▶│ tcpConnection_t   │                  
+└──────────────────────┘                                    •                           •               •  └───────────────────┘                  
+           ▲                                                •                           •               •            ▲                            
+           │                                                •                           •               •            │                            
+           │  ┌─────────────────┐                           •                ┌──────────────────────┐   •            │                            
+           │──│ httpServer_t    │ ••••••••••••••••••••••••••••••••••••••••••▶│ tlsConnection_t      │────────────────┘                            
+           │  └─────────────────┘                           •                └──────────────────────┘   •            │                            
+           │           ▲                                    •                           ▲               •            │                            
+           │           │                                    •                           •               •            │                            
+           │           │                                    •           ┌───────────────────────────┐   •            │                            
+           │  ┌──────────────────┐                          •           │ httpServer_t::webSocket_t │••••            │                            
+           │  │ httpsServer_t    │                          •           └───────────────────────────┘                │                            
+           │  └──────────────────┘                          •                           ▲                            │                            
+           │                                                •                           │                            │                            
+           │                                                •           ┌────────────────────────────────┐           │                            
+           │                                                •           │ httpServer_t::httpConnection_t │           │                            
+           │                                                •           └────────────────────────────────┘           │                            
+           │                                                •                                                        │                            
+           │  ┌──────────────────┐                          •           ┌────────────────────────────────────┐       │                            
+           │──│ ftpServer_t      │•••••••••••••••••••••••••••••••••••••▶│ftpServer_t::ftpControlConnection_t │──────│                            
+           │  └──────────────────┘                                      └────────────────────────────────────┘       │                            
+           │                                                                                                         │                                                   
+           │  ┌──────────────────┐                                      ┌───────────────────────────────────┐        │                            
+           └──│ telnetServer_t   │•••••••••••••••••••••••••••••••••••••▶│telnetServer_t::telnetConnection_t │───────┘
+              └──────────────────┘                                      └───────────────────────────────────┘                                    
+
+
+Edit/view: https://cascii.app/e83d5                           
 
 */
 
 
 #pragma once
-#ifndef __HTTPS_SERVER__
-    #define __HTTPS_SERVER__
-
-    #include <httpServer.h>
+#ifndef __HTTPS_SERVER_H__
+    #define __HTTPS_SERVER_H__
 
 
-    /* wolfSSL user_settings.h must be included from settings.h
-    * Make all configurations changes in user_settings.h
-    * Do not edit wolfSSL `settings.h` or `config.h` files.
-    * Do not explicitly include user_settings.h in any source code.
-    * Each Arduino sketch that uses wolfSSL must have: #include "wolfssl.h"
-    * C/C++ source files can use: #include <wolfssl/wolfcrypt/settings.h>
-    * The wolfSSL "settings.h" must be included in each source file using wolfSSL.
-    * The wolfSSL "settings.h" must appear before any other wolfSSL include.
-    */
-    #include <wolfssl.h>
-    /* Important: make sure settings.h appears before any other wolfSSL headers */
-    #include <wolfssl/wolfcrypt/settings.h>
-    /* Reminder: settings.h includes user_settings.h
-    * For ALL project wolfSSL settings, see:
-    * [your path]/Arduino\libraries\wolfSSL\src\user_settings.h   */
-    #include <wolfssl/ssl.h>
-    #include <wolfssl/wolfcrypt/error-crypt.h>
-
-
-    class tlsConnection_t : public tcpConnection_t {
-
-        friend class httpsConnection_t;
-
-        public:
-
-            tlsConnection_t (int socket, const char* clientIP, const char* serverIP, WOLFSSL_CTX* ctx);
-            
-            bool tlsHandshake ();
-
-            ~tlsConnection_t ();
-
-            // bool() operator to test if tlsConnection is ready
-            operator bool () const { return __ssl__ != NULL && tcpConnection_t::operator bool (); }
-
-            const char *cipherName () { return __cipherName__; }
-
-            // Override tcpConnection communication functions
-
-            int recvBlock (void *buf, size_t len) override;
-
-            // reads and fills the buffer until endingString is read (also finishes the string with ending 0)
-            // returns the number of characters read up to len - 1 if OK
-            //                                             len if the buffer is too small
-            //                                             0 if the peer closed the connection
-            //                                             -1 if error occured
-            int recvString (char *buf, size_t len, const char *endingString) override;
-
-            // sends the whole block of charcters
-            // returns len in case of OK
-            //           0 if the peer closed the connection
-            //          -1 in case of error
-            int sendBlock (void *buf, size_t len) override;
-
-        private:
-
-            WOLFSSL *__ssl__ = NULL;            
-            const char *__cipherName__ = "";
-    };
-
-    class httpsConnection_t : public httpServer_t::webSocket_t {
-
-        public:
-
-            httpsConnection_t (tlsConnection_t* transport,
-                            void *FileSystem,
-                            bool (webSocket_t::*replyWithFileContentPtr) (),
-                            String (*httpRequestHandlerCallback) (const char *httpRequest, httpServer_t::httpConnection_t *hcn),
-                            void (*wsRequestHandlerCallback) (const char *httpRequest, httpServer_t::webSocket_t *webSck)) 
-                            : 
-                            httpServer_t::webSocket_t (transport,
-                                                        FileSystem,
-                                                        replyWithFileContentPtr,
-                                                        httpRequestHandlerCallback,
-                                                        wsRequestHandlerCallback) {
-            }
-
-            bool tlsHandshake () {
-                // tlsHandshake calls wolfSSL_accept which is logically part of accepting ssl connection
-                // logically we would do this in tlsConnection constructor which runs in listener's task 
-                // with very limited stack memory so it was moved here
-
-                // samo poda naprej
-                tlsConnection_t *transport = static_cast<tlsConnection_t*>(__transport__);
-
-                bool b = transport->tlsHandshake ();
-                if (b)
-                    __cipherName__ = transport->cipherName ();
-                return b;
-            }
-
-            const char *cipherName () override { return __cipherName__; }
-
-        private:
-
-            const char *__cipherName__ = "";
-    };
+    #include "httpServer.h"
+    #include "tlsConnection.h" // uses WolfSSL library
+    #define CTX_CA_CERT_TYPE WOLFSSL_FILETYPE_ASN1 // for binary .der certificate format
 
 
     // ----- TUNING PARAMETERS -----
-
 
     #define HTTPS_CONNECTION_STACK_SIZE (17 * 1024)
     #define HTTPS_CONNECTION_TIME_OUT 3
@@ -128,12 +77,52 @@
 
         public: 
 
+
+            class httpsConnection_t : public httpServer_t::webSocket_t {
+
+                public:
+
+                    httpsConnection_t (tlsConnection_t* transport,
+                                       void *FileSystem,
+                                       bool (webSocket_t::*replyWithFileContentPtr) (),
+                                       String (*httpRequestHandlerCallback) (const char *httpRequest, httpServer_t::httpConnection_t *hcn),
+                                       void (*wsRequestHandlerCallback) (const char *httpRequest, httpServer_t::webSocket_t *webSck)) 
+                                       : 
+                                       httpServer_t::webSocket_t (transport,
+                                                                  FileSystem,
+                                                                  replyWithFileContentPtr,
+                                                                  httpRequestHandlerCallback,
+                                                                  wsRequestHandlerCallback) {
+                    }
+
+                    bool tlsServerHandshake () {
+                        // tlsServerHandshake calls wolfSSL_accept which is logically part of accepting ssl connection
+                        // logically we would do this in tlsConnection constructor which runs in listener's task 
+                        // with very limited stack memory so it was moved here
+
+                        // just pass the call to transport
+                        tlsConnection_t *transport = static_cast<tlsConnection_t*>(__transport__);
+
+                        bool b = transport->tlsServerHandshake ();
+                        if (b)
+                            __cipherName__ = transport->cipherName ();
+                        return b;
+                    }
+
+                    const char *cipherName () override { return __cipherName__; }
+
+                private:
+
+                    const char *__cipherName__ = "";
+            };
+
+
             httpsServer_t (unsigned char *__server_key_der__, unsigned int __server_cert_der_len__, unsigned char *__server_cert_der__, unsigned int __server_key_der_len__,
-                        String (*httpRequestHandlerCallback) (const char *httpRequest, httpConnection_t *hcn) = NULL,
-                        void (*wsRequestHandlerCallback) (const char *httpRequest, webSocket_t *webSck) = NULL,
-                        int serverPort = 443,
-                        bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
-                        bool runListenerInItsOwnTask = true) : httpServer_t (httpRequestHandlerCallback,
+                           String (*httpRequestHandlerCallback) (const char *httpRequest, httpConnection_t *hcn) = NULL,
+                           void (*wsRequestHandlerCallback) (const char *httpRequest, webSocket_t *webSck) = NULL,
+                           int serverPort = 443,
+                           bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
+                           bool runListenerInItsOwnTask = true) : httpServer_t (httpRequestHandlerCallback,
                                                                                 wsRequestHandlerCallback,
                                                                                 serverPort,
                                                                                 firewallCallback,
@@ -148,17 +137,16 @@
 
                 // constructor with a file system
                 httpsServer_t (threadSafeFS::FS& fileSystem,
-                            String (*httpRequestHandlerCallback) (const char *httpRequest, httpConnection_t *hcn) = NULL,
-                            void (*wsRequestHandlerCallback) (const char *httpRequest, webSocket_t *webSck) = NULL,
-                            int serverPort = 443,
-                            bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
-                            bool runListenerInItsOwnTask = true) : httpServer_t (fileSystem,
+                               String (*httpRequestHandlerCallback) (const char *httpRequest, httpConnection_t *hcn) = NULL,
+                               void (*wsRequestHandlerCallback) (const char *httpRequest, webSocket_t *webSck) = NULL,
+                               int serverPort = 443,
+                               bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
+                               bool runListenerInItsOwnTask = true) : httpServer_t (fileSystem,
                                                                                     httpRequestHandlerCallback,
                                                                                     wsRequestHandlerCallback,
                                                                                     serverPort,
                                                                                     firewallCallback,
                                                                                     runListenerInItsOwnTask) {
-
                     __freeBuffersWhenDestructed__ = true;
 
                     // create directory structure and test sever-key.der and server-cert.der files
@@ -169,7 +157,6 @@
                         if (!fileSystem.isDirectory ("/etc/ssl/certs"))
                             cout << ( dmesgQueue << "[httpsServer] " "can't create /etc/ssl/certs" );
                     }
-
 
                     if (!fileSystem.isFile ("/etc/ssl/certs/server-cert.der")) {
                         threadSafeFS::File f = fileSystem.open ("/etc/ssl/certs/server-cert.der", "w");
@@ -291,7 +278,6 @@
                         return;
                     }
 
-
                     if (!__setup_SSL__ (__server_key_der__, __server_cert_der_len__, __server_cert_der__, __server_key_der_len__)) {
                         free (__server_key_der__);
                         free (__server_cert_der__);
@@ -301,10 +287,6 @@
 
             #endif
 
-
-
-            static int IORecvCallback (WOLFSSL* ssl, char* buf, int sz, void* ctx);
-            static int IOSendCallback (WOLFSSL* ssl, char* buf, int sz, void* ctx);
 
             bool __setup_SSL__ (unsigned char *__server_key_der__, unsigned int __server_cert_der_len__, unsigned char *__server_cert_der__, unsigned int __server_key_der_len__);
 
@@ -335,193 +317,17 @@
     };
 
 
-
-
-    #define CTX_CA_CERT_TYPE WOLFSSL_FILETYPE_ASN1 // for binary .der format
-
-
-    // ----- tlsConnection_t -----
-
-    tlsConnection_t::tlsConnection_t (int socket, const char* clientIP, const char* serverIP, WOLFSSL_CTX* ctx) : tcpConnection_t (socket, clientIP, serverIP) {
-        // SSL init
-        __ssl__ = wolfSSL_new (ctx);
-        if (!__ssl__) {
-            cout << ( dmesgQueue << "[tlsConn] " "wolfSSL_new failed" );
-            return;
-        }
-
-        // bind ssl to socket
-        wolfSSL_set_fd (__ssl__, socket);
-
-        // "this" will be passed as ctx to IORecvCallback and IOSendCallback functions
-        wolfSSL_SetIOReadCtx (__ssl__, this);
-        wolfSSL_SetIOWriteCtx (__ssl__, this);
-    }
-
-    bool tlsConnection_t::tlsHandshake () {
-        // tlsHandshake calls wolfSSL_accept which is logically part of accepting ssl connection
-        // logically we would do this in tlsConnection constructor which runs in listener's task 
-        // with very limited stack memory so it was moved here
-
-        int ret = wolfSSL_accept (__ssl__); 
-        if (ret != WOLFSSL_SUCCESS) {
-            char wc_error_message [81];
-            int err = wolfSSL_get_error (__ssl__, ret);
-            wolfSSL_ERR_error_string (err, wc_error_message);
-            cout << "[tlsConn] " "wolfSSL_accept failed: " << wc_error_message;
-            return false;
-        }
-
-        // get cipher only after the handshake is over
-        __cipherName__ = wolfSSL_get_cipher (__ssl__);
-
-        return true;
-    }
-
-    tlsConnection_t::~tlsConnection_t () {
-        if (__ssl__) {
-            wolfSSL_shutdown (__ssl__);
-            wolfSSL_free (__ssl__);                
-            __ssl__ = NULL;
-        }
-    }
-
-    int tlsConnection_t::recvBlock (void *buf, size_t len) {
-        int received = wolfSSL_read (__ssl__, buf, len);
-        if (received <= 0) {
-            char wc_error_message [81];
-            int err = wolfSSL_get_error (__ssl__, received);
-            wolfSSL_ERR_error_string (err, wc_error_message);
-            cout << "[tlsConn] " "wolfSSL_read failed: " << wc_error_message;
-        }
-        return received;
-    }
-
-    // reads and fills the buffer until endingString is read (also finishes the string with ending 0)
-    // returns the number of characters read up to len - 1 if OK
-    //                                             len if the buffer is too small
-    //                                             0 if the peer closed the connection
-    //                                             -1 if error occured
-    int tlsConnection_t::recvString (char *buf, size_t len, const char *endingString) {
-        int receivedTotal = 0;
-        int receivedThisTime;
-
-        while (receivedTotal != len - 1) { // read blocks of incoming data
-            receivedThisTime = wolfSSL_read (__ssl__, buf + receivedTotal, len - receivedTotal - 1);
-            if (receivedThisTime <= 0) {
-                char wc_error_message [81];
-                int err = wolfSSL_get_error (__ssl__, receivedThisTime);
-                wolfSSL_ERR_error_string (err, wc_error_message);
-                cout << "[tlsConn] " "wolfSSL_read failed: " << wc_error_message;
-                return receivedThisTime;
-            }
-
-            receivedTotal += receivedThisTime;
-
-            // the following code assumes that the other side sends command or reply (according to the protocol) that ends with endingString
-            buf [receivedTotal] = 0;
-            if (strstr (buf, endingString))
-                return receivedTotal;
-        }
-
-        // we read the whole buffer up to len-1 but the ending string did not arrive - buffer is too small
-        return len; 
-    }
-
-    // sends the whole block of charcters
-    // returns len in case of OK
-    //           0 if the peer closed the connection
-    //          -1 in case of error
-    int tlsConnection_t::sendBlock (void *buf, size_t len) {
-        size_t sentTotal = 0;
-        while (sentTotal < len) {
-            int sentThisTime = wolfSSL_write (__ssl__, (char *) buf + sentTotal, len - sentTotal); 
-
-            if (sentThisTime <= 0) {
-                char wc_error_message [81];
-                int err = wolfSSL_get_error (__ssl__, sentThisTime);
-                wolfSSL_ERR_error_string (err, wc_error_message);
-                cout << "[tlsConn] " "wolfSSL_write failed: " << wc_error_message;
-                return sentThisTime;
-            }
-        
-            sentTotal += sentThisTime;
-
-            if (sentTotal < len) 
-                delay (25);
-        } 
-        return sentTotal;
-    }
-
-
-    // ----- httpsServer_t -----
-
     httpsServer_t::~httpsServer_t () {
         if (__ctx__) {
             wolfSSL_CTX_free (__ctx__);
             __ctx__ = NULL;
         }
-        wolfSSL_Cleanup ();
+        tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
         if (__freeBuffersWhenDestructed__) {
         if (__server_key_der__) free (__server_key_der__);
         if (__server_cert_der__) free (__server_cert_der__);
         }
     }
-
-    // Custom IO functions with LwIP semaphore
-    int httpsServer_t::IORecvCallback (WOLFSSL* ssl, char* buf, int sz, void* ctx) {
-        tcpConnection_t *tcpConnection = static_cast<tcpConnection_t*>(ctx);
-        int n = tcpConnection->recv (buf, sz);
-
-        if (n > 0)
-            return n;   // OK
-
-        if (n == 0)
-            return WOLFSSL_CBIO_ERR_CONN_CLOSE;  // peer closed
-
-        // n < 0 → check errno
-        switch (errno) {
-            case 11:        // EAGAIN and EWOULDBLOCK
-                            return WOLFSSL_CBIO_ERR_WANT_READ;
-            case 107:       // ENOTCONN
-                            [[fallthrough]];
-            case 104:       // ECONNRESET
-                            [[fallthrough]];
-            case 113:       // ECONNABORTED:
-                            [[fallthrough]];
-            case 128:       // LWIP internal "socket closed"
-                            return WOLFSSL_CBIO_ERR_CONN_CLOSE;
-            default:
-                            return WOLFSSL_CBIO_ERR_GENERAL;
-        }
-    }
-    int httpsServer_t::IOSendCallback (WOLFSSL* ssl, char* buf, int sz, void* ctx) {
-        tcpConnection_t* tcpConnection = static_cast<tcpConnection_t*>(ctx);
-        int n = tcpConnection->send (buf, sz);
-
-        if (n > 0)
-            return n;   // OK
-
-        if (n == 0)
-            return WOLFSSL_CBIO_ERR_CONN_CLOSE;  // peer closed
-
-        // n < 0 → check errno
-        switch (errno) {
-            case 11:        // EAGAIN / EWOULDBLOCK
-                            return WOLFSSL_CBIO_ERR_WANT_WRITE;
-            case 107:       // ENOTCONN
-                            [[fallthrough]];
-            case 104:       // ECONNRESET
-                            [[fallthrough]];
-            case 113:       // ECONNABORTED
-                            [[fallthrough]];
-            case 128:       // LWIP internal "socket closed"
-                            return WOLFSSL_CBIO_ERR_CONN_CLOSE;
-            default:
-                            return WOLFSSL_CBIO_ERR_GENERAL;
-        }
-    }
-
 
     bool httpsServer_t::__setup_SSL__ (unsigned char *__server_key_der__, unsigned int __server_cert_der_len__, unsigned char *__server_cert_der__, unsigned int __server_key_der_len__) {
         #define CTX_SERVER_KEY_TYPE WOLFSSL_FILETYPE_ASN1 // for binary .der format
@@ -529,7 +335,7 @@
         randomSeed (esp_random ());
 
         // Initialize wolfSSL before assigning ctx
-        if (wolfSSL_Init () != WOLFSSL_SUCCESS) {
+        if (tlsSystem.Init () != WOLFSSL_SUCCESS) { // if (wolfSSL_Init () != WOLFSSL_SUCCESS) {
             cout << ( dmesgQueue << "[httpsServer] " "wolfSSL_Init failed" );
             return false;
         }
@@ -544,14 +350,14 @@
         method = wolfSSLv23_server_method ();
         if (method == NULL) {
             cout << ( dmesgQueue << "[httpsServer] " "wolfSSLv23_server_method failed" );
-            wolfSSL_Cleanup ();
+            tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
             return false;
         }
 
         __ctx__ = wolfSSL_CTX_new (method);
         if (__ctx__ == NULL) {
             cout << ( dmesgQueue << "[httpsServer] " "wolfSSL_CTX_new failed" );
-            wolfSSL_Cleanup ();
+            tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
             return false;
         }                    
 
@@ -563,29 +369,22 @@
         // Serial.println("Initializing certificates...");
         if (wolfSSL_CTX_use_certificate_buffer (__ctx__, __server_cert_der__, __server_cert_der_len__, CTX_CA_CERT_TYPE) != WOLFSSL_SUCCESS) {
             cout << ( dmesgQueue << "[httpsServer] " "wolfSSL_CTX_use_certificate_buffer failed: " << wc_error_message );
-            wolfSSL_Cleanup ();
+            tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
             return false;
         }
 
         // Setup private server key
         if (wolfSSL_CTX_use_PrivateKey_buffer (__ctx__, __server_key_der__, __server_key_der_len__, CTX_SERVER_KEY_TYPE) != WOLFSSL_SUCCESS) {
             cout << ( dmesgQueue << "[httpsServer] " "wolfSSL_CTX_use_PrivateKey_buffer failed: " << wc_error_message );
-            wolfSSL_Cleanup ();
+            tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
             return false;
         }
-
-        // Initialize wolfSSL using callback functions.
-        wolfSSL_SetIORecv (__ctx__, IORecvCallback); 
-        wolfSSL_SetIOSend (__ctx__, IOSendCallback);
-
-        // cout << ( dmesgQueue << "[httpsServer] " "wolfSSL set up" );
 
         return true;
     }
 
 
     tcpConnection_t *httpsServer_t::__createConnectionInstance__ (int connectionSocket, char *clientIP, char *serverIP) {
-
         tlsConnection_t *tlsConnection = new (std::nothrow) tlsConnection_t (connectionSocket, clientIP, serverIP, __ctx__);
         if (!tlsConnection) {
             cout << ( dmesgQueue << "[httpsServer] " "can't create connection instance, out of memory" );
@@ -607,10 +406,10 @@
         if (pdPASS != xTaskCreate ([] (void *thisInstance) {
                                                                 httpsConnection_t* ths = static_cast<httpsConnection_t*>(thisInstance); // get "this" pointer
 
-                                                                // tlsHandshake calls wolfSSL_accept which is logically part of accepting ssl connection
+                                                                // tlsServerHandshake calls wolfSSL_accept which is logically part of accepting ssl connection
                                                                 // logically we would do this in tlsConnection constructor which runs in listener's task 
                                                                 // with very limited stack memory so it was moved here
-                                                                if (ths->tlsHandshake ()) {
+                                                                if (ths->tlsServerHandshake ()) {
 
                                                                     xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
                                                                         __runningTcpConnections__ ++;
@@ -621,7 +420,6 @@
                                                                     xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
                                                                         __runningTcpConnections__ --;
                                                                     xSemaphoreGive (getLwIpMutex ());
-
                                                                 }
 
                                                                 delete ths;
@@ -638,4 +436,3 @@
     }
 
 #endif
-

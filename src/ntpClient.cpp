@@ -1,23 +1,66 @@
 /*
 
-  ntpClient.cpp
+    ntpClient.cpp 
+  
+    This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
+  
 
-  This file is part of Multitasking HTTP, FTP, Telnet, NTP, SMTP servers and clients for ESP32 - Arduino library: https://github.com/BojanJurca/Multitasking-Http-Ftp-Telnet-Ntp-Smtp-Servers-and-clients-for-ESP32-Arduino-Library
+    May 22, 2026, Bojan Jurca
 
 
-  This library is based on Let's make a NTP Client in C: https://lettier.github.io/posts/2016-04-26-lets-make-a-ntp-client-in-c.html
-  which I'm keeping here as close to the original as possible due to its comprehensive explanation.
+    Multitasking/thread-safe classes and functions: 
 
-  May 22, 2026, Bojan Jurca
+        inherits from:  ─────────▶                                                                                          ┌───────────────────┐
+        uses:           •••••••••▶                                                                                           │ ntpClient_t       │
+                                                                                                                             └───────────────────┘
+                                                                                                                             ┌───────────────────┐
+                                                                                        ••••••••••••••••••••••••••••••••••••▶│ httpsClient       │
+                                                                                        •                                    └───────────────────┘
+                                                                                        •                                    ┌───────────────────┐
+                                                                                        •                           ••••••••▶│ httpClient        │
+                                                                                        •                           •        └───────────────────┘
+                                                                                        •                           •        ┌───────────────────┐
+                                                                                        •                           ••••••••▶│ smtpClient        │
+                                                                                        •                           •        └───────────────────┘
+                                                                                        •                           •                                             
+                                                                                        •                           •                             
+┌──────────────────────┐                                                                •                  ┌────────•──────────┐                  
+│ tcpServer_t          │••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••▶│ tcpConnection_t   │                  
+└──────────────────────┘                                    •                           •               •  └───────────────────┘                  
+           ▲                                                •                           •               •            ▲                            
+           │                                                •                           •               •            │                            
+           │  ┌─────────────────┐                           •                ┌──────────────────────┐   •            │                            
+           │──│ httpServer_t    │ ••••••••••••••••••••••••••••••••••••••••••▶│ tlsConnection_t      │────────────────┘                            
+           │  └─────────────────┘                           •                └──────────────────────┘   •            │                            
+           │           ▲                                    •                           ▲               •            │                            
+           │           │                                    •                           •               •            │                            
+           │           │                                    •           ┌───────────────────────────┐   •            │                            
+           │  ┌──────────────────┐                          •           │ httpServer_t::webSocket_t │••••            │                            
+           │  │ httpsServer_t    │                          •           └───────────────────────────┘                │                            
+           │  └──────────────────┘                          •                           ▲                            │                            
+           │                                                •                           │                            │                            
+           │                                                •           ┌────────────────────────────────┐           │                            
+           │                                                •           │ httpServer_t::httpConnection_t │           │                            
+           │                                                •           └────────────────────────────────┘           │                            
+           │                                                •                                                        │                            
+           │  ┌──────────────────┐                          •           ┌────────────────────────────────────┐       │                            
+           │──│ ftpServer_t      │•••••••••••••••••••••••••••••••••••••▶│ftpServer_t::ftpControlConnection_t │──────│                            
+           │  └──────────────────┘                                      └────────────────────────────────────┘       │                            
+           │                                                                                                         │                                                   
+           │  ┌──────────────────┐                                      ┌───────────────────────────────────┐        │                            
+           └──│ telnetServer_t   │•••••••••••••••••••••••••••••••••••••▶│telnetServer_t::telnetConnection_t │───────┘
+              └──────────────────┘                                      └───────────────────────────────────┘                                    
+
+
+Edit/view: https://cascii.app/e83d5                           
 
 */
 
 
-#include <WiFi.h>
+#include "ntpClient.h"
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/time.h>
-#include "ntpClient.h"
 
 
 ntpClient_t::ntpClient_t () {}

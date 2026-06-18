@@ -1,88 +1,67 @@
 /*
 
-    ftpServer.cpp
+    ftpServer.cpp 
+  
+    This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
+  
 
-    This file is part of Multitasking HTTP, FTP, Telnet, NTP, SMTP servers and clients for ESP32 - Arduino library: https://github.com/BojanJurca/Multitasking-Http-Ftp-Telnet-Ntp-Smtp-Servers-and-clients-for-ESP32-Arduino-Library
-
-
-    March 12, 2026, Bojan Jurca
-
-
-    Classes implemented/used in this module:
-
-        ftpServer_t
-        ftpServer_t::ftpControlConnection_t
-        tcpClient_t for active data connection
-        tcpServer_t, tcpConnection_t for pasive data connection
-
-    Inheritance diagram:
-
-             ┌─────────────┐
-             │ tcpServer_t ┼┐
-             └─────────────┘│
-                            │
-      ┌─────────────────┐   │
-      │ tcpConnection_t ┼┐  │
-      └─────────────────┘│  │
-                         │  │
-                         │  │  ┌─────────────────────────┐
-                         │  ├──┼─ httpServer_t           │
-                         ├─────┼──── webSocket_t         │
-                         │  │  │     └── httpConection_t │
-                         │  │  └─────────────────────────┘
-                         │  │  logicly webSocket_t would inherit from httpConnection_t but it is easier to implement it the other way around
-                         │  │
-                         │  │
-                         │  │  ┌────────────────────────┐
-                         │  ├──┼─ telnetServer_t        │
-                         ├─────┼──── telnetConnection_t │
-                         │  │  └────────────────────────┘
-                         │  │
-                         │  │
-                         │  │  ┌────────────────────────────┐
-                         │  └──┼─ ftpServer_t               │
-                         ├─────┼──── ftpControlConnection_t │
-                         │     └────────────────────────────┘
-                         │  
-                         │  
-                         │     ┌──────────────┐
-                         └─────┼─ tcpClient_t │
-                               └──────────────┘
+    May 22, 2026, Bojan Jurca
 
 
-    Nomenclature used here for easier understaning of the code:
+    Multitasking/thread-safe classes and functions: 
 
-     - "connection" normally applies to TCP connection from when it was established to when it is terminated
+        inherits from:  ─────────▶                                                                                          ┌───────────────────┐
+        uses:           •••••••••▶                                                                                           │ ntpClient_t       │
+                                                                                                                             └───────────────────┘
+                                                                                                                             ┌───────────────────┐
+                                                                                        ••••••••••••••••••••••••••••••••••••▶│ httpsClient       │
+                                                                                        •                                    └───────────────────┘
+                                                                                        •                                    ┌───────────────────┐
+                                                                                        •                           ••••••••▶│ httpClient        │
+                                                                                        •                           •        └───────────────────┘
+                                                                                        •                           •        ┌───────────────────┐
+                                                                                        •                           ••••••••▶│ smtpClient        │
+                                                                                        •                           •        └───────────────────┘
+                                                                                        •                           •                                             
+                                                                                        •                           •                             
+┌──────────────────────┐                                                                •                  ┌────────•──────────┐                  
+│ tcpServer_t          │••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••▶│ tcpConnection_t   │                  
+└──────────────────────┘                                    •                           •               •  └───────────────────┘                  
+           ▲                                                •                           •               •            ▲                            
+           │                                                •                           •               •            │                            
+           │  ┌─────────────────┐                           •                ┌──────────────────────┐   •            │                            
+           │──│ httpServer_t    │ ••••••••••••••••••••••••••••••••••••••••••▶│ tlsConnection_t      │────────────────┘                            
+           │  └─────────────────┘                           •                └──────────────────────┘   •            │                            
+           │           ▲                                    •                           ▲               •            │                            
+           │           │                                    •                           •               •            │                            
+           │           │                                    •           ┌───────────────────────────┐   •            │                            
+           │  ┌──────────────────┐                          •           │ httpServer_t::webSocket_t │••••            │                            
+           │  │ httpsServer_t    │                          •           └───────────────────────────┘                │                            
+           │  └──────────────────┘                          •                           ▲                            │                            
+           │                                                •                           │                            │                            
+           │                                                •           ┌────────────────────────────────┐           │                            
+           │                                                •           │ httpServer_t::httpConnection_t │           │                            
+           │                                                •           └────────────────────────────────┘           │                            
+           │                                                •                                                        │                            
+           │  ┌──────────────────┐                          •           ┌────────────────────────────────────┐       │                            
+           │──│ ftpServer_t      │•••••••••••••••••••••••••••••••••••••▶│ftpServer_t::ftpControlConnection_t │──────│                            
+           │  └──────────────────┘                                      └────────────────────────────────────┘       │                            
+           │                                                                                                         │                                                   
+           │  ┌──────────────────┐                                      ┌───────────────────────────────────┐        │                            
+           └──│ telnetServer_t   │•••••••••••••••••••••••••••••••••••••▶│telnetServer_t::telnetConnection_t │───────┘
+              └──────────────────┘                                      └───────────────────────────────────┘                                    
 
-                  There is normally only one control TCP connection per FTP session. Beside control connection FTP client and server open
-                  also a data TCP connection when certain commands are involved (like LIST, RETR, STOR, ...).
 
-     - "session" applies to user interaction between login and logout
-
-                  The first thing that the user does when a TCP connection is established is logging in and the last thing is logging out. It TCP
-                  connection drops for some reason the user is automatically logged out.
-
-      - "buffer size" is the number of bytes that can be placed in a buffer. 
-      
-                  In case of C 0-terminated strings the terminating 0 character should be included in "buffer size".
-
-    Handling FTP commands that always arrive through control TCP connection is pretty straightforward. The data transfer TCP connection, on the other 
-    hand, can be initialized eighter by the server or the client. In the first case, the client starts a listener (thus acting as a server) and sends 
-    its connection information (IP and port number) to the FTP server through the PORT command. The server then initializes data connection to the 
-    client. This is called active data connection. Windows FTP.exe uses this kind of data transfer by default. In the second case, the client sends 
-    a PASV command to the FTP server, then the server starts another listener (beside the control connection listener that is already running) and 
-    sends its connection information (IP and port number) back to the client as a reply to the PASV command. The client then initializes data 
-    connection to the server. This is called passive data connection. Windows Explorer uses this kind of data transfer.
+Edit/view: https://cascii.app/e83d5                           
 
 */
 
 
-#include <WiFi.h>
+#include "ftpServer.h"
 #include <errno.h>
 #include <string.h>
 #include <dmesg.hpp>
 #include <ostream.hpp>
-#include "ftpServer.h"
 
 
 // static member initialization
@@ -368,7 +347,7 @@ const char *ftpServer_t::ftpControlConnection_t::__PORT__ (char *dataConnectionI
         activeServerPort = p1 << 8 | p2;
 
         // connect to the FTP client that acts as server now
-        __dataConnection__ = new (std::nothrow) tcpClient_t (activeServerIP, activeServerPort);
+        __dataConnection__ = new (std::nothrow) tcpConnection_t (activeServerIP, activeServerPort);
         if (__dataConnection__ && *__dataConnection__) { // test if connection is created and connected
             __dataConnection__->setIdleTimeout (FTP_DATA_CONNECTION_TIME_OUT);
             return "200 port ok\r\n";
@@ -386,7 +365,7 @@ const char *ftpServer_t::ftpControlConnection_t::__EPRT__ (char *dataConnectionI
 
     if (2 == sscanf (dataConnectionInfo, "|%*d|%39[^|]|%d|", activeServerIP, &activeServerPort)) {
         // connect to the FTP client that act as server now
-        __dataConnection__ = new (std::nothrow) tcpClient_t (activeServerIP, activeServerPort);
+        __dataConnection__ = new (std::nothrow) tcpConnection_t (activeServerIP, activeServerPort);
         if (__dataConnection__ && *__dataConnection__) { // test if connection is created and connected
             __dataConnection__->setIdleTimeout (FTP_DATA_CONNECTION_TIME_OUT);
             return "200 port ok\r\n";

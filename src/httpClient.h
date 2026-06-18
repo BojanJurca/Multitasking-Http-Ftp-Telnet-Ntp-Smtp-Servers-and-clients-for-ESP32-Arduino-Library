@@ -1,60 +1,68 @@
 /*
 
-    httpClient.hpp 
+    httpClient.h 
   
     This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
   
 
-    February 6, 2026, Bojan Jurca
+    May 22, 2026, Bojan Jurca
 
 
-    Classes used in this module:
+    Multitasking/thread-safe classes and functions: 
 
-        tcpClient_t
+        inherits from:  ─────────▶                                                                                          ┌───────────────────┐
+        uses:           •••••••••▶                                                                                           │ ntpClient_t       │
+                                                                                                                             └───────────────────┘
+                                                                                                                             ┌───────────────────┐
+                                                                                        ••••••••••••••••••••••••••••••••••••▶│ httpsClient       │
+                                                                                        •                                    └───────────────────┘
+                                                                                        •                                    ┌───────────────────┐
+                                                                                        •                           ••••••••▶│ httpClient        │
+                                                                                        •                           •        └───────────────────┘
+                                                                                        •                           •        ┌───────────────────┐
+                                                                                        •                           ••••••••▶│ smtpClient        │
+                                                                                        •                           •        └───────────────────┘
+                                                                                        •                           •                                             
+                                                                                        •                           •                             
+┌──────────────────────┐                                                                •                  ┌────────•──────────┐                  
+│ tcpServer_t          │••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••▶│ tcpConnection_t   │                  
+└──────────────────────┘                                    •                           •               •  └───────────────────┘                  
+           ▲                                                •                           •               •            ▲                            
+           │                                                •                           •               •            │                            
+           │  ┌─────────────────┐                           •                ┌──────────────────────┐   •            │                            
+           │──│ httpServer_t    │ ••••••••••••••••••••••••••••••••••••••••••▶│ tlsConnection_t      │────────────────┘                            
+           │  └─────────────────┘                           •                └──────────────────────┘   •            │                            
+           │           ▲                                    •                           ▲               •            │                            
+           │           │                                    •                           •               •            │                            
+           │           │                                    •           ┌───────────────────────────┐   •            │                            
+           │  ┌──────────────────┐                          •           │ httpServer_t::webSocket_t │••••            │                            
+           │  │ httpsServer_t    │                          •           └───────────────────────────┘                │                            
+           │  └──────────────────┘                          •                           ▲                            │                            
+           │                                                •                           │                            │                            
+           │                                                •           ┌────────────────────────────────┐           │                            
+           │                                                •           │ httpServer_t::httpConnection_t │           │                            
+           │                                                •           └────────────────────────────────┘           │                            
+           │                                                •                                                        │                            
+           │  ┌──────────────────┐                          •           ┌────────────────────────────────────┐       │                            
+           │──│ ftpServer_t      │•••••••••••••••••••••••••••••••••••••▶│ftpServer_t::ftpControlConnection_t │──────│                            
+           │  └──────────────────┘                                      └────────────────────────────────────┘       │                            
+           │                                                                                                         │                                                   
+           │  ┌──────────────────┐                                      ┌───────────────────────────────────┐        │                            
+           └──│ telnetServer_t   │•••••••••••••••••••••••••••••••••••••▶│telnetServer_t::telnetConnection_t │───────┘
+              └──────────────────┘                                      └───────────────────────────────────┘                                    
 
-    Inheritance diagram:    
 
-             ┌─────────────┐
-             │ tcpServer_t ┼┐
-             └─────────────┘│
-                            │
-      ┌─────────────────┐   │
-      │ tcpConnection_t ┼┐  │
-      └─────────────────┘│  │
-                         │  │
-                         │  │  ┌─────────────────────────┐
-                         │  ├──┼─ httpServer_t           │
-                         ├─────┼──── webSocket_t         │
-                         │  │  │     └── httpConection_t │
-                         │  │  └─────────────────────────┘
-                         │  │  logicly webSocket_t would inherit from httpConnection_t but it is easier to implement it the other way around
-                         │  │
-                         │  │
-                         │  │  ┌────────────────────────┐
-                         │  ├──┼─ telnetServer_t        │
-                         ├─────┼──── telnetConnection_t │
-                         │  │  └────────────────────────┘
-                         │  │
-                         │  │
-                         │  │  ┌────────────────────────────┐
-                         │  └──┼─ ftpServer_t               │
-                         ├─────┼──── ftpControlConnection_t │
-                         │     └────────────────────────────┘
-                         │  
-                         │  
-                         │     ┌──────────────┐
-                         └─────┼─ tcpClient_t │
-                               └──────────────┘
+Edit/view: https://cascii.app/e83d5                           
 
 */
 
 
-#ifndef __HTTP_CLIENT__
-    #define __HTTP_CLIENT__
+#ifndef __HTTP_CLIENT_H__
+    #define __HTTP_CLIENT_H__
 
 
     #include <WiFi.h>
-    #include "tcpClient.h"
+    #include "tcpConnection.h"
     #include <Cstring.hpp>      // include LightweightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
 
 
@@ -75,19 +83,19 @@
 
     // ----- CODE -----
 
-    inline String httpRequest (const char *httpServer, int httpPort, const char *httpAddress, const char *httpMethod = (const char *) "GET", unsigned long timeOut = HTTP_REPLY_TIME_OUT) {
+    inline String httpRequest (const char *httpServer, int httpPort = 80, const char *httpAddress = "/", const char *httpMethod = "GET", unsigned long timeOut = HTTP_REPLY_TIME_OUT) {
 
         if (!WiFi.isConnected () || WiFi.localIP () == IPAddress (0, 0, 0, 0))
-            return "not connected";
+            return "not connected to WiFi";
 
-        tcpClient_t httpClient (httpServer, httpPort);
-        if (httpClient.errText ())
+        tcpConnection_t httpClient (httpServer, httpPort);
+        if (*httpClient.errText ())
             return httpClient.errText ();
 
         httpClient.setIdleTimeout (HTTP_REPLY_TIME_OUT);
 
         // 1. send HTTP request
-        cstring httpRequest;
+        Cstring<300> httpRequest;
         httpRequest += httpMethod;
         httpRequest += " ";
         httpRequest += httpAddress;
@@ -99,7 +107,7 @@
 
         switch (httpClient.sendString (httpRequest)) {
             case -1:  return strerror (errno);
-            case 0:   return (const char *) "Connection closed by peer";
+            case 0:   return "connection closed by peer";
             default:  break; // OK
         }
 
@@ -119,11 +127,11 @@
                 case 0:     // connection closed by peer
                             if (httpReply != "")
                                 return httpReply; // we could have got HTTP reply but the COntent-Length is not reported correctly
-                            return (const char *) "Connection closed by peer";
+                            return "connection closed by peer";
                 default:      // block arrived
                                 buffer [receivedThisTime] = 0;
                                 if (!httpReply.concat (buffer))
-                                    return (const char *) "Out of memory";
+                                    return "Out of memory";
 
                                 // check if HTTP reply is complete
                                 char *p = strstr (httpReply.c_str (), "\nContent-Length:");

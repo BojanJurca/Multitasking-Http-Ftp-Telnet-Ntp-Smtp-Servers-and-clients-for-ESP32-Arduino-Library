@@ -1,93 +1,74 @@
 /*
 
     telnetServer.h
-
-    This file is part of Multitasking HTTP, FTP, Telnet, NTP, SMTP servers and clients for ESP32 - Arduino library: https://github.com/BojanJurca/Multitasking-Http-Ftp-Telnet-Ntp-Smtp-Servers-and-clients-for-ESP32-Arduino-Library
-
+  
+    This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
+  
 
     May 22, 2026, Bojan Jurca
 
 
-    Classes implemented/used in this module:
+    Multitasking/thread-safe classes and functions: 
 
-        telnetServer_t
-        telnetServer_t::telnetConnection_t
+        inherits from:  ─────────▶                                                                                          ┌───────────────────┐
+        uses:           •••••••••▶                                                                                           │ ntpClient_t       │
+                                                                                                                             └───────────────────┘
+                                                                                                                             ┌───────────────────┐
+                                                                                        ••••••••••••••••••••••••••••••••••••▶│ httpsClient       │
+                                                                                        •                                    └───────────────────┘
+                                                                                        •                                    ┌───────────────────┐
+                                                                                        •                           ••••••••▶│ httpClient        │
+                                                                                        •                           •        └───────────────────┘
+                                                                                        •                           •        ┌───────────────────┐
+                                                                                        •                           ••••••••▶│ smtpClient        │
+                                                                                        •                           •        └───────────────────┘
+                                                                                        •                           •                                             
+                                                                                        •                           •                             
+┌──────────────────────┐                                                                •                  ┌────────•──────────┐                  
+│ tcpServer_t          │••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••▶│ tcpConnection_t   │                  
+└──────────────────────┘                                    •                           •               •  └───────────────────┘                  
+           ▲                                                •                           •               •            ▲                            
+           │                                                •                           •               •            │                            
+           │  ┌─────────────────┐                           •                ┌──────────────────────┐   •            │                            
+           │──│ httpServer_t    │ ••••••••••••••••••••••••••••••••••••••••••▶│ tlsConnection_t      │────────────────┘                            
+           │  └─────────────────┘                           •                └──────────────────────┘   •            │                            
+           │           ▲                                    •                           ▲               •            │                            
+           │           │                                    •                           •               •            │                            
+           │           │                                    •           ┌───────────────────────────┐   •            │                            
+           │  ┌──────────────────┐                          •           │ httpServer_t::webSocket_t │••••            │                            
+           │  │ httpsServer_t    │                          •           └───────────────────────────┘                │                            
+           │  └──────────────────┘                          •                           ▲                            │                            
+           │                                                •                           │                            │                            
+           │                                                •           ┌────────────────────────────────┐           │                            
+           │                                                •           │ httpServer_t::httpConnection_t │           │                            
+           │                                                •           └────────────────────────────────┘           │                            
+           │                                                •                                                        │                            
+           │  ┌──────────────────┐                          •           ┌────────────────────────────────────┐       │                            
+           │──│ ftpServer_t      │•••••••••••••••••••••••••••••••••••••▶│ftpServer_t::ftpControlConnection_t │──────│                            
+           │  └──────────────────┘                                      └────────────────────────────────────┘       │                            
+           │                                                                                                         │                                                   
+           │  ┌──────────────────┐                                      ┌───────────────────────────────────┐        │                            
+           └──│ telnetServer_t   │•••••••••••••••••••••••••••••••••••••▶│telnetServer_t::telnetConnection_t │───────┘
+              └──────────────────┘                                      └───────────────────────────────────┘                                    
 
-    Inheritance diagram:    
 
-             ┌─────────────┐
-             │ tcpServer_t ┼┐
-             └─────────────┘│
-                            │
-      ┌─────────────────┐   │
-      │ tcpConnection_t ┼┐  │
-      └─────────────────┘│  │
-                         │  │
-                         │  │  ┌─────────────────────────┐
-                         │  ├──┼─ httpServer_t           │
-                         ├─────┼──── webSocket_t         │
-                         │  │  │     └── httpConection_t │
-                         │  │  └─────────────────────────┘
-                         │  │  logicly webSocket_t would inherit from httpConnection_t but it is easier to implement it the other way around
-                         │  │
-                         │  │
-                         │  │  ┌────────────────────────┐
-                         │  ├──┼─ telnetServer_t        │
-                         ├─────┼──── telnetConnection_t │
-                         │  │  └────────────────────────┘
-                         │  │
-                         │  │
-                         │  │  ┌────────────────────────────┐
-                         │  └──┼─ ftpServer_t               │
-                         ├─────┼──── ftpControlConnection_t │
-                         │     └────────────────────────────┘
-                         │  
-                         │  
-                         │     ┌──────────────┐
-                         └─────┼─ tcpClient_t │
-                               └──────────────┘
-
-
-    Nomenclature used here for easier understaning of the code:
-
-     - "connection" normally applies to TCP connection from when it was established to when it is terminated
-
-                  There is normally only one TCP connection per telnet session. These terms are pretty much interchangeable when we are talking about telnet.
-
-     - "session" applies to user interaction between login and logout
-
-                  The first thing that the user does when a TCP connection is established is logging in and the last thing is logging out. If TCP
-                  connection drops for some reason the user is automatically logged out.
-
-      - "buffer size" is the number of bytes that can be placed in a buffer. 
-      
-                  In case of C 0-terminated strings the terminating 0 character should be included in "buffer size".
-
-    Telnet protocol is basically a straightforward non synchronized transfer of text data in both directions, from client to server and vice versa.
-    This implementation also adds processing command lines by detecting the end-of-line, parsing command line to arguments and then executing
-    some already built-in commands and sending replies back to the client. In addition the calling program can provide its own command handler to handle
-    some commands itself. Special telnet commands, so called IAC ("Interpret As Command") commands are placed within text stream and should be
-    extracted from it and processed by both, the server and the client. All IAC commands start with character 255 (IAC character) and are followed
-    by other characters. The number of characters following IAC characters varies from command to command. For example: the server may request
-    the client to report its window size by sending IAC (255) DO (253) NAWS (31) and then the client replies with IAC (255) SB (250) NAWS (31) following
-    with 2 bytes of window width and 2 bytes of window height and then IAC (255) SE (240).
+Edit/view: https://cascii.app/e83d5                           
 
 */
 
 
 #pragma once
-#ifndef __TELNET_SERVER__
-        #define __TELNET_SERVER__
+#ifndef __TELNET_SERVER_H__
+        #define __TELNET_SERVER_H__
 
 
+        #include "tcpServer.h"
+        #include <ostream.hpp>
+        #include <Cstring.hpp> 
+        #include <dmesg.hpp>
         #include <esp_task_wdt.h>
         #include <esp_wifi.h>
-        #include <Cstring.hpp>      // include LightweightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
-        #include <tcpServer.h>
-        #include <tcpConnection.h>
-        #include <tcpClient.h>
-        #include <dmesg.hpp>
-        #include <ostream.hpp>
+
 
         #ifdef __THREAD_SAFE_FS__
                 #include <FS.h>
@@ -162,7 +143,7 @@
                 #define TELNET_KILL_COMMAND 1       // 0=exclude, 1=include, kill included by default
         #endif
         #ifndef TELNET_CURL_COMMAND
-                #define TELNET_CURL_COMMAND 1       // 0=exclude, 1=include, curl included by default
+                #define TELNET_CURL_COMMAND 1       // 0=exclude, (default) 1=include http, 2=include http and https
         #endif
         #ifndef TELNET_SENDMAIL_COMMAND
                 #define TELNET_SENDMAIL_COMMAND 1   // 0=exclude, 1=include, sendmail included by default
@@ -302,19 +283,23 @@
 
 
         #if (TELNET_UPTIME_COMMAND == 1) || (TELNET_DATE_COMMAND == 1) || (TELNET_NTPDATE_COMMAND == 1)
-                #include <ntpClient.h>
+                #include "ntpClient.h"
         #endif
         #if TELNET_CRONTAB_COMMAND == 1
-                #include <cronDaemon.h>
+                #include "cronDaemon.h"
         #endif
         #if TELNET_PING_COMMAND == 1
                 #include <ThreadSafePing.h>
         #endif
         #if TELNET_CURL_COMMAND == 1 
-                #include <httpClient.h>
+                #include "httpClient.h"
+        #endif
+        #if TELNET_CURL_COMMAND == 2
+                #include "httpClient.h"
+                #include "httpsClient.h"
         #endif
         #if TELNET_SENDMAIL_COMMAND == 1 
-                #include <smtpClient.h>
+                #include "smtpClient.h"
         #endif
         #if TELNET_TREE_COMMAND == 1
                 #include <queue.hpp>   	            // for tree command only, // include LightweightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
@@ -401,8 +386,6 @@
         // server <- client: IAC DO CHARSET
         // server -> client: IAC SB CHARSET REQUEST UTF-8 IAC SE
         // client <- server: IAC SB CHARSET RESPONSE UTF-8 IAC SE (hopefully, but won't check)
-
-
 
         class telnetServer_t : public tcpServer_t {
 
@@ -523,7 +506,7 @@
                                 #if TELNET_KILL_COMMAND == 1
                                         Cstring<300> __kill__ (int sockfd);
                                 #endif
-                                #if TELNET_CURL_COMMAND == 1
+                                #if TELNET_CURL_COMMAND == 1 or TELNET_CURL_COMMAND == 2
                                         const char *__curl__ (const char *method, char *url);
                                 #endif
                                 #if TELNET_LS_COMMAND == 1
@@ -1122,6 +1105,13 @@
                                                                                         return "Wrong syntax, use curl [method] http://url";
                                                                 } 
                 #endif
+                #if TELNET_CURL_COMMAND == 2
+                        else if (telnetArgv0Is ("curl"))        { 
+                                                                        if (argc == 2)  return __curl__ ("GET", argv [1]);
+                                                                        if (argc == 3)  return __curl__ (argv [1], argv [2]);
+                                                                                        return "Wrong syntax, use curl [method] http(s)://url";
+                                                                } 
+                #endif
 
                 #if TELNET_SENDMAIL_COMMAND == 1
                         else if (telnetArgv0Is ("sendmail"))    { 
@@ -1376,7 +1366,7 @@
                                                 #if TELNET_CRONTAB_COMMAND == 1
                                                         "\r\n      crontab"
                                                 #endif
-                                                #if TELNET_PING_COMMAND == 1 or TELNET_IFCONFIG_COMMAND == 1 or TELNET_NETSTATS_COMMAND == 1 or TELNET_KILL_COMMAND == 1 or TELNET_CURL_COMMAND == 1 or TELNET_SENDMAIL_COMMAND == 1
+                                                #if TELNET_PING_COMMAND == 1 or TELNET_IFCONFIG_COMMAND == 1 or TELNET_NETSTATS_COMMAND == 1 or TELNET_KILL_COMMAND == 1 or TELNET_CURL_COMMAND == 1 or TELNET_CURL_COMMAND == 2 or TELNET_SENDMAIL_COMMAND == 1
                                                         "\r\n  network commands:"
                                                 #endif
                                                 #if TELNET_PING_COMMAND == 1
@@ -1396,6 +1386,9 @@
                                                 #endif
                                                 #if TELNET_CURL_COMMAND == 1
                                                         "\r\n      curl [method] http://url"
+                                                #endif
+                                                #if TELNET_CURL_COMMAND == 2
+                                                        "\r\n      curl [method] http(s)://url"
                                                 #endif
                                                 #if TELNET_SENDMAIL_COMMAND == 1
                                                         #ifdef __THREAD_SAFE_FS__
@@ -1829,11 +1822,7 @@
                 }
         #endif
 
-        #if TELNET_IW_COMMAND == 1      
-                extern "C" {
-                        int ram_check_noise_floor (void);
-                }
-
+        #if TELNET_IW_COMMAND == 1
                 const char *telnetServer_t::telnetConnection_t::__iw__ () {
                         Cstring<2048> buf;
 
@@ -1869,34 +1858,17 @@
                                 // STAtion
                                 if (netif->name [0] == 's' && netif->name [1] == 't') {
                                         if (WiFi.status () == WL_CONNECTED) {
-                                                int rssi = WiFi.RSSI ();                // read RSSI from WiFi library
-                                                // https://forum.arduino.cc/t/esp32-wifi-link-quality-measurement/1434580?_gl=1*1dpbo3y*_up*MQ..*_ga*MTQzNjY1MjYyMi4xNzgwODU1OTkw*_ga_NEXN8H46L5*czE3ODA4NTU5OTAkbzEkZzAkdDE3ODA4NTU5OTAkajYwJGwwJGgxNzYxMDU3Nzk0
-                                                int nf = ram_check_noise_floor () / 4;  // convert noise floor to dBm
-                                                int snr = rssi - nf;                    // calculate signal-to-noise ratio [dB]
-                                                const char *rssiDescription = "";
-                                                if (nf >= 0 || rssi >= 0)
-                                                        ; // rssiDescription = "";
-                                                else if (snr < 10)
-                                                        rssiDescription = " dB (near the limit)";
-                                                else if (snr < 15)
-                                                        rssiDescription = " dB (poor)";
-                                                else if (snr < 25)
-                                                        rssiDescription = " dB (good)";
-                                                else // if (snr < 40)
-                                                        rssiDescription = " dB (excelent)";
-
+                                                int rssi = WiFi.RSSI ();
+                                                const char *rssiDescription = ""; if (rssi == 0) rssiDescription = "not available"; else if (rssi >= -30) rssiDescription = "excelent"; else if (rssi >= -67) rssiDescription = "very good"; else if (rssi >= -70) rssiDescription = "okay"; else if (rssi >= -80) rssiDescription = "not good"; else if (rssi >= -90) rssiDescription = "bad"; else rssiDescription = "unusable";
                                                 buf += "\r\n           STAtion is connected to router:\r\n"
                                                         "\r\n              ipv4 addr: ";
                                                 buf += WiFi.gatewayIP ().toString ().c_str ();
                                                 // it would be nice to add IPv6 router's address here as well but it may be a challange getting it in Arduino
                                                 buf += "     RSSI: ";
                                                 buf += rssi;
-                                                buf += " dBm ";
-                                                if (*rssiDescription) {
-                                                        buf += "    SNR: ";
-                                                        buf += snr;
-                                                        buf += rssiDescription;
-                                                }
+                                                buf += " dBm (";
+                                                buf += rssiDescription;
+                                                buf += ")";
                                         } else {
                                                 buf += "\r\n           STAtion is not connected to router\r\n";
                                         }
@@ -2084,6 +2056,42 @@
                                 strcpy (server, server + 1);
                         }
                         String r = httpRequest (server, port, addr, method);
+                        if (!r) 
+                               return "Out of memory";
+                        sendString (r.c_str ());
+                        return "\r"; // different than "" to let the calling function know that the command has been processed
+                }
+        #endif
+        #if TELNET_CURL_COMMAND == 2
+                const char *telnetServer_t::telnetConnection_t::__curl__ (const char *method, char *url) {
+                        char server [65];
+                        char addr [128] = "/";
+                        int port = 80;
+                        bool isHttps = false;
+
+                        if (sscanf (url, "http://%64[^:]:%i/%126s", server, &port, addr + 1) < 2) { // we haven't got at least server, port and the default address
+                                if (sscanf (url, "http://%64[^/]/%126s", server, addr + 1) < 1) { // we haven't got at least server and the default address  
+                                        port = 443;
+                                        isHttps = true;
+                                        if (sscanf (url, "https://%64[^:]:%i/%126s", server, &port, addr + 1) < 2) { // we haven't got at least server, port and the default address
+                                                if (sscanf (url, "https://%64[^/]/%126s", server, addr + 1) < 1) { // we haven't got at least server and the default address  
+                                                        return "Wrong url, use form of http(s)://server/address or http(s)://server:port/address";
+                                                }
+                                        }
+                                }
+                        }
+                        
+                        if (port <= 0) 
+                                return "Wrong port number";
+                        if (server [0] == '[' && server [strlen (server) - 1] == ']') {
+                                server [strlen (server) - 1] = 0;
+                                strcpy (server, server + 1);
+                        }
+                        String r;
+                        if (!isHttps)
+                                r = httpRequest (server, port, addr, method);
+                        else
+                                r = httpsRequest (server, port, addr, method);
                         if (!r) 
                                return "Out of memory";
                         sendString (r.c_str ());

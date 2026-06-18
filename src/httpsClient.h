@@ -1,6 +1,6 @@
 /*
 
-    ftpServer.h 
+    httpsClient.h
   
     This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
   
@@ -58,120 +58,129 @@ Edit/view: https://cascii.app/e83d5
 
 
 #pragma once
-#ifndef __FTP_SERVER_H__
-    #define __FTP_SERVER_H__
+#ifndef __HTTPS_CLIENT_H__
+    #define __HTTPS_CLIENT_H__
 
 
-    #include "tcpServer.h"
-    #include <Cstring.hpp>      // include LightweightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
-    #include <FS.h>
-    #include <threadSafeFS.h>
+    #include <Cstring.hpp>
+    #include "tlsConnection.h" // uses WolfSSL library
 
 
-    // TUNING PARAMETERS
+    // ----- functions and variables in this modul -----
 
-    #define FTP_CONTROL_CONNECTION_STACK_SIZE (8 * 1024)        // a good first estimate how to set this parameter would be to always leave at least 1 KB of each ftpControlConnection stack unused
-    #define FTP_CMDLINE_BUFFER_SIZE 300                         // reading and temporary keeping FTP command lines                    
-    #define FTP_SESSION_MAX_ARGC 5                              // max number of arguments in command line, 5 is enough for FTP protocol                       
-    #define FTP_CONTROL_CONNECTION_TIME_OUT 300                 // 300 s = 5 min, set to 0 for infinite            
-    #define FTP_DATA_CONNECTION_TIME_OUT 3                      // 3 s, set to 0 for infinite            
+    String httpsRequest (const char *httpServer, int httpPort, const char *httpRequest, const char *httpMethod, unsigned long timeOut);
 
-    #ifndef HOSTNAME
-        #define HOSTNAME "Esp32Server"                          // use default HOSTNAME if not defined previously
+
+    // ----- TUNNING PARAMETERS -----
+
+    #ifndef HTTPS_REPLY_TIME_OUT
+        #define HTTPS_REPLY_TIME_OUT 3                 // 3s s
+    #endif
+    #ifndef HTTPS_REPLY_BUFFER_SIZE
+        #define HTTPS_REPLY_BUFFER_SIZE 1440
     #endif
 
 
-    class ftpServer_t : public tcpServer_t {
+    // ----- CODE -----
 
-        public:
+    inline String httpsRequest (const char *httpsServer, int httpsPort = 443, const char *httpsAddress = "/", const char *httpsMethod = "GET", unsigned long timeOut = HTTPS_REPLY_TIME_OUT) {
+        if (!WiFi.isConnected () || WiFi.localIP () == IPAddress (0, 0, 0, 0))
+            return "not connected to WiFi";
 
-            class ftpControlConnection_t : public tcpConnection_t {
+        // --- WolfSSL init ---
+        tlsSystem.Init (); // wolfSSL_Init ();
 
-                friend class ftpServer_t;
+        // WolfSSL need more stack memory that Arduino normaly provides so run
+        // the rest of the code in a separate task and wait for it to finish
+        struct params_t {
+            const char *httpsServer;
+            int httpsPort;
+            const char *httpsAddress;
+            const char *httpsMethod;
+            unsigned long timeOut;
+            SemaphoreHandle_t done;
+            String httpsReply;
+        } params = { httpsServer, httpsPort, httpsAddress, httpsMethod, timeOut, xSemaphoreCreateBinary (), "" };
+        if (pdPASS == xTaskCreate ([] (void *ptr) {
+                                                    params_t *params = static_cast<params_t*>(ptr);
 
-            private:
+                                                    tlsConnection_t tlsConnection (params->httpsServer, params->httpsPort, params->timeOut);
+                                                    if (*tlsConnection.errText ()) {
+                                                        params->httpsReply = tlsConnection.errText ();
+                                                        xSemaphoreGive (params->done);
+                                                        vTaskDelete (NULL);
+                                                    }
 
-                threadSafeFS::FS& __fileSystem__;
-                Cstring<255> (*__getUserHomeDirectory__) (const Cstring<64>& userName, const Cstring<64>& password) = NULL;
+                                                    // 1. send HTTP request
+                                                    Cstring<300> httpsRequest;
+                                                    httpsRequest += params->httpsMethod;
+                                                    httpsRequest += " ";
+                                                    httpsRequest += params->httpsAddress;
+                                                    httpsRequest += " HTTP/1.0\r\nHost: ";
+                                                    httpsRequest += params->httpsServer;
+                                                    httpsRequest += "\r\n\r\n"; // 1.0 HTTP does not know keep-alive directive - we want the server to close the connection immediatelly after sending the reply
+                                                    if (httpsRequest.errorFlags ()) {
+                                                        params->httpsReply = "HTTP request too long";
+                                                        xSemaphoreGive (params->done);
+                                                        vTaskDelete (NULL);                                                        
+                                                    }
 
-                // FTP session related variables
-                char __cmdLine__ [FTP_CMDLINE_BUFFER_SIZE];
+                                                    int sent = tlsConnection.sendString (httpsRequest);
+                                                    if (sent <= 0) {
+                                                        params->httpsReply = "TLS write error";
+                                                        xSemaphoreGive (params->done);
+                                                        vTaskDelete (NULL);    
+                                                    }
 
-                Cstring<64>  __userName__;
-                Cstring<255> __homeDirectory__;
-                Cstring<255> __workingDirectory__;
+                                                    // 2. read HTTP reply
+                                                    char buffer [HTTPS_REPLY_BUFFER_SIZE];
+                                                    int receivedThisTime;
 
-                static UBaseType_t __lastHighWaterMark__;
+                                                    while (true) { // read blocks of incoming data
+                                                        receivedThisTime = tlsConnection.recvBlock (buffer, HTTPS_REPLY_BUFFER_SIZE - 1);
+                                                        if (receivedThisTime <= 0) {
+                                                            params->httpsReply = "TLS read error";
+                                                            xSemaphoreGive (params->done);
+                                                            vTaskDelete (NULL);    
+                                                        }
 
-                //tcpConnection_t  *__activeDataClient__  = NULL;
-                tcpConnection_t  *__dataConnection__    = NULL;
+                                                        // block arrived
+                                                        buffer [receivedThisTime] = 0;
+                                                        if (!params->httpsReply.concat (buffer)) {
+                                                            params->httpsReply = "Out of memory";
+                                                            xSemaphoreGive (params->done);
+                                                            vTaskDelete (NULL);                                                              
+                                                        }
 
-                Cstring<255> __rnfrPath__;
-                char __rnfrIs__; // 'f' or 'd'
+                                                        // check if HTTP reply is complete
+                                                        char *p = strstr (params->httpsReply.c_str (), "\nContent-Length:");
+                                                        if (p) {
+                                                            p += 16;
+                                                            unsigned int contentLength;
+                                                            if (sscanf (p, "%u", &contentLength) == 1) {
+                                                                p = strstr (p, "\r\n\r\n"); // the content comes afterwards
+                                                                if (p && contentLength == strlen (p + 4)) {
+                                                                    xSemaphoreGive (params->done);
+                                                                    vTaskDelete (NULL); // success
+                                                                }
+                                                            }
+                                                        }
+                                                        // else continue reading
+                                                    } // while       
+                                                    
+                                                    // never executes
+                                                    xSemaphoreGive (params->done);
+                                                    vTaskDelete (NULL);
+                                                  }
+                                , "httpsRequest", 18 * 1024, &params, (tskIDLE_PRIORITY + 1), NULL)) {
+            xSemaphoreTake (params.done, portMAX_DELAY);
+        } else {
+            params.httpsReply = "Out of memory";
+        }
 
-            public:
+        tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
 
-                ftpControlConnection_t (threadSafeFS::FS& fileSystem,
-                                        Cstring<255> (*getUserHomeDirectory) (const Cstring<64>& userName, const Cstring<64>& password),
-                                        int connectionSocket,
-                                        char *clientIP,
-                                        char *serverIP);
-
-                ~ftpControlConnection_t ();
-
-                // FTP session related variables
-                inline char *getUserName () __attribute__((always_inline)) { return __userName__; }
-                inline char *getHomeDirectory () __attribute__((always_inline)) { return __homeDirectory__; }
-                inline char *getWorkingDirectory () __attribute__((always_inline)) { return __workingDirectory__; }
-
-            private:
-
-                // core task logic
-                void __runConnectionTask__ ();
-
-                // command dispatcher
-                cstring __internalCommandHandler__ (int argc, char *argv []);
-
-                // user/session commands
-                Cstring<300>   __USER__ (char *userName);
-                Cstring<300>   __PASS__ (char *password);
-                Cstring<300>   __CWD__ (char *directoryName);
-                Cstring<300>   __XPWD__ ();
-                const char    *__XMKD__ (char *directoryName);
-                const char    *__XRMD__ (char *fileOrDirName);
-                Cstring<300>   __SIZE__ (char *fileName);
-
-                // data connection management
-                void           __closeDataConnection__ ();
-                int            __pasiveDataPort__ ();
-                const char    *__PORT__ (char *dataConnectionInfo);
-                const char    *__EPRT__ (char *dataConnectionInfo);
-                const char    *__PASV__ ();
-                const char    *__EPSV__ ();
-                const char    *__NLST__ (char *directoryName);
-                const char    *__RNFR__ (char *fileOrDirName);
-                const char    *__RNTO__ (char *fileOrDirName);
-                const char    *__RETR__ (char *fileName);
-                const char    *__STOR__ (char *fileName);
-            };
-
-        private:
-
-            threadSafeFS::FS& __fileSystem__;
-            Cstring<255> (*__getUserHomeDirectory__) (const Cstring<64>& userName, const Cstring<64>& password) = NULL;
-
-        public:
-
-            ftpServer_t (threadSafeFS::FS& fileSystem,
-                         Cstring<255> (*getUserHomeDirectory) (const Cstring<64>& userName, const Cstring<64>& password) = NULL,
-                         int serverPort = 21,
-                         bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
-                         bool runListenerInItsOwnTask = true);
-
-            tcpConnection_t *__createConnectionInstance__ (int connectionSocket, char *clientIP, char *serverIP) override;
-
-            // accept any connection, the client will get notified in __createConnectionInstance__
-            inline tcpConnection_t *accept () __attribute__((always_inline)) { return tcpServer_t::accept (); }
-    };
+        return params.httpsReply;
+    }
 
 #endif

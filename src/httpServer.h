@@ -1,108 +1,73 @@
 /*
 
-    httpServer.h
+    httpServer.h 
   
-    This file is part of Multitasking Esp32 HTTP FTP http servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-http-servers-for-Arduino
+    This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
   
+
     May 22, 2026, Bojan Jurca
 
 
-    Classes implemented/used in this module:
+    Multitasking/thread-safe classes and functions: 
 
-        httpServer_t
-        httpServer_t::httpConnection_t
-        httpServer_t::webSocket_t
-
-    Inheritance diagram:    
-
-             ┌─────────────┐
-             │ tcpServer_t ┼┐
-             └─────────────┘│
-                            │
-      ┌─────────────────┐   │
-      │ tcpConnection_t ┼┐  │
-      └─────────────────┘│  │
-                         │  │
-                         │  │  ┌─────────────────────────┐
-                         │  ├──┼─ httpServer_t           │
-                         ├─────┼──── webSocket_t         │
-                         │  │  │     └── httpConection_t │
-                         │  │  └─────────────────────────┘
-                         │  │  logicly webSocket_t would inherit from httpConnection_t but it is easier to implement it the other way around
-                         │  │
-                         │  │
-                         │  │  ┌────────────────────────┐
-                         │  ├──┼─ telnetServer_t        │
-                         ├─────┼──── telnetConnection_t │
-                         │  │  └────────────────────────┘
-                         │  │
-                         │  │
-                         │  │  ┌────────────────────────────┐
-                         │  └──┼─ ftpServer_t               │
-                         ├─────┼──── ftpControlConnection_t │
-                         │     └────────────────────────────┘
-                         │  
-                         │  
-                         │     ┌──────────────┐
-                         └─────┼─ tcpClient_t │
-                               └──────────────┘
-
-
-    Nomenclature used here for easier understaning of the code:
-
-     - "connection" normally applies to TCP connection from when it was established to when it is terminated
-
-                  Looking back to HTTP 1.0 protocol one TCP connection was used to transmit oparamene HTTP request from browser to web server
-                  and then HTTP response back to the browser. After this TCP connection was terminated. HTTP 1.1 introduced "keep-alive"
-                  directive. When the browser requests several pages from server it can do it over the same TCP connection in short time period 
-                  (one after another) reducing the need of establishing and terminating TCP connections several times.   
-
-      - "buffer size" is the number of bytes that can be placed in a buffer. 
-      
-                  In case of C 0-terminated strings the terminating 0 character should be included in "buffer size".
+        inherits from:  ─────────▶                                                                                          ┌───────────────────┐
+        uses:           •••••••••▶                                                                                           │ ntpClient_t       │
+                                                                                                                             └───────────────────┘
+                                                                                                                             ┌───────────────────┐
+                                                                                        ••••••••••••••••••••••••••••••••••••▶│ httpsClient       │
+                                                                                        •                                    └───────────────────┘
+                                                                                        •                                    ┌───────────────────┐
+                                                                                        •                           ••••••••▶│ httpClient        │
+                                                                                        •                           •        └───────────────────┘
+                                                                                        •                           •        ┌───────────────────┐
+                                                                                        •                           ••••••••▶│ smtpClient        │
+                                                                                        •                           •        └───────────────────┘
+                                                                                        •                           •                                             
+                                                                                        •                           •                             
+┌──────────────────────┐                                                                •                  ┌────────•──────────┐                  
+│ tcpServer_t          │••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••▶│ tcpConnection_t   │                  
+└──────────────────────┘                                    •                           •               •  └───────────────────┘                  
+           ▲                                                •                           •               •            ▲                            
+           │                                                •                           •               •            │                            
+           │  ┌─────────────────┐                           •                ┌──────────────────────┐   •            │                            
+           │──│ httpServer_t    │ ••••••••••••••••••••••••••••••••••••••••••▶│ tlsConnection_t      │────────────────┘                            
+           │  └─────────────────┘                           •                └──────────────────────┘   •            │                            
+           │           ▲                                    •                           ▲               •            │                            
+           │           │                                    •                           •               •            │                            
+           │           │                                    •           ┌───────────────────────────┐   •            │                            
+           │  ┌──────────────────┐                          •           │ httpServer_t::webSocket_t │••••            │                            
+           │  │ httpsServer_t    │                          •           └───────────────────────────┘                │                            
+           │  └──────────────────┘                          •                           ▲                            │                            
+           │                                                •                           │                            │                            
+           │                                                •           ┌────────────────────────────────┐           │                            
+           │                                                •           │ httpServer_t::httpConnection_t │           │                            
+           │                                                •           └────────────────────────────────┘           │                            
+           │                                                •                                                        │                            
+           │  ┌──────────────────┐                          •           ┌────────────────────────────────────┐       │                            
+           │──│ ftpServer_t      │•••••••••••••••••••••••••••••••••••••▶│ftpServer_t::ftpControlConnection_t │──────│                            
+           │  └──────────────────┘                                      └────────────────────────────────────┘       │                            
+           │                                                                                                         │                                                   
+           │  ┌──────────────────┐                                      ┌───────────────────────────────────┐        │                            
+           └──│ telnetServer_t   │•••••••••••••••••••••••••••••••••••••▶│telnetServer_t::telnetConnection_t │───────┘
+              └──────────────────┘                                      └───────────────────────────────────┘                                    
 
 
-      - "HTTP request":
-
-                  ┌──────────────── GET / HTTP/1.1
-                  │                 Host: 10.18.1.200
-                  │                 Connection: keep-alive    field value
-                  │                 Cache-Control: max-age=0   |
-         request  │    field name - Upgrade-Insecure-Requests: 1
-                  │                 User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36
-                  │                 Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng;q=0.8,application/signed-exchange;v=b3;q=0.9
-                  │                 Accept-Encoding: gzip, deflate
-                  │                 Accept-Language: sl-SI,sl;q=0.9,en-GB;q=0.8,en;q=0.7
-                  └──────────────── Cookie: refreshCounter=1
-                                                |          |
-                                           cookie name   cookie value
-
-      - "HTTP reply":
-                                                    status
-                                                       |         cookie name, value, path and expiration
-                  ┌─────────┬──────────────── HTTP/1.1 200 OK      |     |    |         |
-                  │         │                 Set-Cookie: refreshCounter=2; Path=/; Expires=Thu, 09 Dec 2021 19:07:04 GMT
-            reply │  header │    field name - Content-Type: text/html
-                  │         │                 Content-Length: 96   |
-                  │         └────────────────                     field value
-                  └─ content ──────────────── <HTML>Web cookies<br><br>This page has been refreshed 2 times. Click refresh to see more.</HTML>
+Edit/view: https://cascii.app/e83d5                           
 
 */
 
 
 #pragma once
-#ifndef __HTTP_SERVER__
-    #define __HTTP_SERVER__
+#ifndef __HTTP_SERVER_H__
+    #define __HTTP_SERVER_H__
 
 
-    #include <WiFi.h>
-    #include <dmesg.hpp>
+    #include "tcpServer.h"
+    #include "dmesg.hpp"
     #include <Cstring.hpp>
     #include <sha/sha_parallel_engine.h>
     #include <mbedtls/base64.h>
     #include <mbedtls/md.h>
-    #include "tcpServer.h"
-    #include "tcpConnection.h"
 
 
     // ----- TUNING PARAMETERS -----
