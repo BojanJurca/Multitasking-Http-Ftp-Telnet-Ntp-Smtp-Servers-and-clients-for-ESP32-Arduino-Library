@@ -30,7 +30,7 @@ using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operat
 #define TELNET_IW_COMMAND 0         // 0=exclude, 1=include, iw is included by default
 #define TELNET_NETSTAT_COMMAND 0    // 0=exclude, 1=include, netstat is included by default
 #define TELNET_KILL_COMMAND 0       // 0=exclude, 1=include, kill is included by default
-#define TELNET_CURL_COMMAND 0       // 0=exclude, 1=include, curl is included by default
+#define TELNET_CURL_COMMAND 0       // 0=exclude, (default) 1=include http, 2=include http and https
 #define TELNET_SENDMAIL_COMMAND 0   // 0=exclude, 1=include, sendmail is included by default
 #define TELNET_LS_COMMAND 1         // 0=exclude, 1=include, ls is included by default
 #define TELNET_TREE_COMMAND 0       // 0=exclude, 1=include, tree is included by default
