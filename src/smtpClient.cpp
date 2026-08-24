@@ -5,7 +5,7 @@
     This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
   
 
-    May 22, 2026, Bojan Jurca
+    Aug 12, 2026, Bojan Jurca
 
 
     Multitasking/thread-safe classes and functions: 
@@ -61,7 +61,6 @@ Edit/view: https://cascii.app/e83d5
 
   // sends message, returns error or success text (from SMTP server)
   Cstring<300> sendMail (const char *message, const char *subject, const char *to, const char *from, const char *password, const char *userName, int smtpPort, const char *smtpServer) {
-
       tcpConnection_t smtpClient (smtpServer, smtpPort);
       if (*smtpClient.errText ())
           return smtpClient.errText ();
@@ -122,7 +121,8 @@ Edit/view: https://cascii.app/e83d5
       // 6. send base64 encoded user name to SMTP server
       size_t encodedLen;
       mbedtls_base64_encode ((unsigned char *) buffer.c_str (), buffer.max_size () - 3, &encodedLen, (const unsigned char *) userName, strlen (userName));
-      strcpy (buffer + encodedLen, "\r\n");
+      strcpy (buffer.c_str () + encodedLen, "\r\n");
+
       switch (smtpClient.sendString (buffer)) {
           case -1:  return strerror (errno);
           case 0:   return "Connection closed by peer";
@@ -141,7 +141,7 @@ Edit/view: https://cascii.app/e83d5
 
       // 8. send base64 encoded password to SMTP server
       mbedtls_base64_encode ((unsigned char *) buffer.c_str (), buffer.max_size () - 3, &encodedLen, (const unsigned char *) password, strlen (password));
-      strcpy (buffer + encodedLen, "\r\n");
+      strcpy (buffer.c_str () + encodedLen, "\r\n");
       switch (smtpClient.sendString (buffer)) {
           case -1:  return strerror (errno);
           case 0:   return "Connection closed by peer";
