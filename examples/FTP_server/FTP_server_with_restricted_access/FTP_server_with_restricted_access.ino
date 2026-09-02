@@ -1,26 +1,24 @@
 /*
   **Note:** Each example demonstrates only a specific feature or use case.  
   The complete, fully integrated server solution is available here:  
-  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino/blob/master/PROJECT_STATE.md
+  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
 */
 
 
 #include <WiFi.h>
+
 #include <LittleFS.h>             // Or SPIFFS.h or FFat.h or SD.h ...
 #include <threadSafeFS.h>         // Include thread-safe wrapper since SPIFFS, LittleFS, FFat and SD file systems are not thread safe
-threadSafeFS::FS TSFS (LittleFS); // Crete thread-safe wrapper arround LittleFS (or FFat or SD)
-using File = threadSafeFS::File;  // Use thread-safe wrapper for all file operations from now on in your code
+
 #define HOSTNAME "Esp32Server"    // Choose your server's name - this is how FTP server would introduce itself to the clients
 #include <ftpServer.h>
-
-
-ftpServer_t *ftpServer = NULL;
 
 
 // 1️⃣ provide a callback function to FTP server that checks user access rights
 Cstring<255> getUserHomeDirectoryCallback (const Cstring<64>& userName, const Cstring<64>& password) {
 
     // Must be reentrant !!
+
 
     if (userName == "root" && password == "rootpassword")
         return "/";             // full access to the file system          
@@ -32,25 +30,29 @@ Cstring<255> getUserHomeDirectoryCallback (const Cstring<64>& userName, const Cs
 
 void setup () {
   Serial.begin (115200);
-  LittleFS.begin (true);
+
+  // Start file system under (thread-safe wrapper) tsfs (LittleFS or SPIFFS or FFat or SD)
+  tsfs.begin (true);
+  
   WiFi.begin ("YOUR_SSID", "YOUR_PASSWORD");
 
 
-  // 2️⃣ create FTP server instance that would use LittleFS and getUserHomeDirectory callback function to check user rights
-  ftpServer = new (std::nothrow) ftpServer_t (TSFS, getUserHomeDirectoryCallback);// optional arguments:
-                                                                                  //    Cstring<255> (*getUserHomeDirectory) (const Cstring<64>& userName, const Cstring<64>& password) = NULL
-                                                                                  //    int serverPort = 21
-                                                                                  //    bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL
-                                                                                  //    bool runListenerInItsOwnTask = true
+  // 2️⃣ Create static (so it would contiune to run even when setup finishes) FTP server instance that would use thread-safe wrapper tsfs arround LittleFS (or FFat or SD)
+                                                                // Optional arguments:
+  static ftpServer_t ftpServer (getUserHomeDirectoryCallback);  // threadSafeFS::FS& fileSystem 
+                                                                // SET THIS ARGUMENT: Cstring<255> (*getUserHomeDirectory) (const Cstring<64>& userName, const Cstring<64>& password) = NULL
+                                                                // int serverPort = 21
+                                                                // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL
+                                                                // bool runListenerInItsOwnTask = true
 
-  // check if FTP server instance is created && FTP server is running
-  if (ftpServer && *ftpServer)
+  // Check if FTP server is running
+  if (ftpServer)
     Serial.println ("FTP server started");
   else
     Serial.println ("FTP server did not start");
 
 
-  // ...
+  // ... your code here
 }
 
 void loop () {
