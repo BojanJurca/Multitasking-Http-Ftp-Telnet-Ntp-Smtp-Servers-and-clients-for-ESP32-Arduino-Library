@@ -1,47 +1,47 @@
 /*
-  **Note:** Each example demonstrates only a specific feature or use case.  
-  The complete, fully integrated server solution is available here:  
-  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino/blob/master/PROJECT_STATE.md
+  **Note:** Each example demonstrates only a specific feature or use case.
+  The complete, fully integrated server solution is available here:
+  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
 
 
-  The HTTPS server uses the WolfSSL library, which can be installed through the 
+  The HTTPS server uses the WolfSSL library, which can be installed through the
   Arduino IDE or downloaded from GitHub: https://github.com/wolfSSL/wolfssl.
 
   WolfSSL must be installed and configured to match your ESP32 board and the type
   of TLS certificate you plan to use before compiling this example.
 
-  A sample user_settings.h file is included to demonstrate a recommended configuration 
+  A sample user_settings.h file is included to demonstrate a recommended configuration
   for ESP32-WROOM modules using ECC certificates.
 
   Additionally, example OpenSSL commands are provided to generate a self‑signed ECC 
   certificate and private key suitable for use with ESP32 
 
+
+  Please take a look at HTTP server examples. After Wolfssl is confugured
+  HTTPS server can be used exactly the same way as the HTTP server. 
+
 */
 
 
 #include <WiFi.h>
+
 #include <LittleFS.h>             // Or SPIFFS.h or FFat.h or SD.h ...
 #include <threadSafeFS.h>         // Include thread-safe wrapper since LittleFS, FFat and SD file systems are not thread safe
 
 
-// 1️⃣ Use file system HTTPS server for it will be needed anyway to store web session tokens
-threadSafeFS::FS TSFS (LittleFS);   // Or SPIFFS or FFat or SD ...
-using File = threadSafeFS::File;  
+#include <httpsServer.h>
 
 
-// 2️⃣ Use NTP client to get current time - it will be needed to set web session token expiration time
+// 1️⃣ Use NTP client to get current time - it will be needed to set web session token expiration time
 #include <ntpClient.h>
 ntpClient_t ntpClient ("1.si.pool.ntp.org", "2.si.pool.ntp.org", "3.si.pool.ntp.org");
 
-
-#include <./https/httpsServer.h>
-httpsServer_t *httpsServer = NULL;
 
 #include "webSessionTokens.h"
 webSessionTokens_t *webSessionTokens = NULL;
 
 
-// 3️⃣ Manage HTTP requests
+// 2️⃣ Manage HTTP requests
 String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpConnection_t *hcn) {
 
     // Must be reentrant !!!
@@ -126,38 +126,36 @@ String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpCo
 
 void setup () {
   Serial.begin (115200);
-  LittleFS.begin (true);
+
+  // Start file system under (thread-safe wrapper) tsfs (LittleFS or SPIFFS or FFat or SD)
+  tsfs.begin (true);
 
 
-  // 4️⃣ Create some .html files - or get them there with FTP for example
-  TSFS.mkdir ("/var");
-  TSFS.mkdir ("/var/www");
-  TSFS.mkdir ("/var/www/html");
-
+  // 3️⃣ Create .html files - or get them there with FTP for example
   File f;
 
-  // if (!TSFS.isFile ("/var/www/html/index.html")) 
+  // if (!tsfs.isFile ("/var/www/html/index.html")) 
   {
     #include "index.h"
-    if ((f = TSFS.open ("/var/www/html/index.html", "w"))) {
+    if ((f = tsfs.open ("/var/www/html/index.html", "w"))) {
       f.print (index);
       f.close ();
     }
   }
 
-  // if (!TSFS.isFile ("/var/www/html/login.html")) 
+  // if (!tsfs.isFile ("/var/www/html/login.html")) 
   {
     #include "login.h"
-    if ((f = TSFS.open ("/var/www/html/login.html", "w"))) {
+    if ((f = tsfs.open ("/var/www/html/login.html", "w"))) {
       f.print (login);
       f.close ();
     }
   }
 
-  // if (!TSFS.isFile ("/var/www/html/administration.html")) 
+  // if (!tsfs.isFile ("/var/www/html/administration.html")) 
   {
     #include "administration.h"
-    if ((f = TSFS.open ("/var/www/html/administration.html", "w"))) {
+    if ((f = tsfs.open ("/var/www/html/administration.html", "w"))) {
       f.print (administration);
       f.close ();
     }
@@ -168,38 +166,38 @@ void setup () {
   WiFi.begin ("YOUR_SSID", "YOUR_PASSWORD");
 
 
-  // 5️⃣ Create HTTPS server instance passing it callback function that will handle the HTTP requests 
-                                                                                // optional arguments:
-  httpsServer = new (std::nothrow) httpsServer_t (TSFS,                         // threadSafeFS::FS& fileSystem,
-                                                  httpRequestHandlerCallback);  // String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpConnection_t *hcn) = NULL,
-                                                                                // void (*wsRequestHandlerCallback) (const char *httpRequest, httpServer_t::webSocket_t *webSck) = NULL,
-                                                                                // int serverPort = 443,
-                                                                                // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
-                                                                                // bool runListenerInItsOwnTask = true
+  // 4️⃣ Create static (so it would contiune to run even when setup finishes) HTTPS server instance passing it callback function that will handle the HTTP requests 
+                                                                  // Optional arguments (when file system is included):
+  static httpsServer_t httpsServer (/* tsfs, */                   // threadSafeFS::FS& fileSystem,
+                                    httpRequestHandlerCallback);  // String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpConnection_t *hcn) = NULL,
+                                                                  // void (*wsRequestHandlerCallback) (const char *httpRequest, httpServer_t::webSocket_t *webSck) = NULL,
+                                                                  // int serverPort = 443,
+                                                                  // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
+                                                                  // bool runListenerInItsOwnTask = true
 
   // Check if HTTPS server instance is created && HTTPS server is running
-  if (httpsServer && *httpsServer)
+  if (httpsServer)
     Serial.println ("HTTPS server started");
   else
     Serial.println ("HTTPS server did not start");
 
 
-  webSessionTokens = new (std::nothrow) webSessionTokens_t (TSFS);
+  webSessionTokens = new (std::nothrow) webSessionTokens_t (tsfs);
   if (!webSessionTokens)
     Serial.println ("[webSessionTokens] not created");
 
 
   // Use web browser to connect to ESP32's IP address
   while (WiFi.localIP () == IPAddress (0, 0, 0, 0)) { // wait until we get IP from router's DHCP
-      delay (1000); 
-      Serial.println ("   ."); 
-  } 
+      delay (1000);
+      Serial.println ("   .");
+  }
   Serial.print ("Got IP addess: "); Serial.println (WiFi.localIP ());
 
   ntpClient.syncTime ();
 
 
-  // ...
+  // ... your code here
 }
 
 void loop () {
