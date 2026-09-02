@@ -1,11 +1,12 @@
 /*
   **Note:** Each example demonstrates only a specific feature or use case.  
   The complete, fully integrated server solution is available here:  
-  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino/blob/master/PROJECT_STATE.md
+  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
 */
 
 
 #include <WiFi.h>
+
 #include <httpServer.h>
 
 
@@ -34,8 +35,6 @@ String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpCo
 }
 
 
-httpServer_t *httpServer = NULL;
-
 void setup () {
   Serial.begin (115200);
 
@@ -44,18 +43,17 @@ void setup () {
   WiFi.begin ("YOUR_SSID", "YOUR_PASSWORD");
 
 
-  // 3️⃣ Create HTTP server instance passing it callback function that will handle the HTTP requests 
-                                                                            // optional arguments:  
-                                                                            // threadSafeFS::FS& fileSystem,                                                                            
-  httpServer = new (std::nothrow) httpServer_t (httpRequestHandlerCallback);// String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpConnection_t *hcn) = NULL,
-                                                                            // void (*wsRequestHandlerCallback) (const char *httpRequest, httpServer_t::webSocket_t *webSck) = NULL,
-                                                                            // int serverPort = 80,
-                                                                            // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
-                                                                            // bool runListenerInItsOwnTask = true
+  // 3️⃣ Create static (so it would contiune to run even when setup finishes) HTTP server instance
+                                                                // Optional arguments (when file system is not included):  
+  static httpServer_t httpServer (httpRequestHandlerCallback);  // SET THIS ARGUMENT: String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpConnection_t *hcn) = NULL,
+                                                                // void (*wsRequestHandlerCallback) (const char *httpRequest, httpServer_t::webSocket_t *webSck) = NULL,
+                                                                // int serverPort = 80,
+                                                                // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
+                                                                // bool runListenerInItsOwnTask = true
 
 
   // 4️⃣ Check if HTTP server instance is created && HTTP server is running
-  if (httpServer && *httpServer)
+  if (httpServer)
     Serial.println ("HTTP server started");
   else
     Serial.println ("HTTP server did not start");
@@ -69,7 +67,7 @@ void setup () {
   Serial.print ("Got IP addess: "); Serial.println (WiFi.localIP ());
 
 
-  // ...
+  // ... your code here
 }
 
 void loop () {
