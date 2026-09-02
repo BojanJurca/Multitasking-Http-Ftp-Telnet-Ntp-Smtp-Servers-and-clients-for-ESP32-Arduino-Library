@@ -5,7 +5,7 @@
     This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
   
 
-    May 22, 2026, Bojan Jurca
+    Aug 12, 2026, Bojan Jurca
 
 
     Multitasking/thread-safe classes and functions: 
@@ -172,6 +172,18 @@ Edit/view: https://cascii.app/e83d5
                         #error Telnet tree command is included but threadSafeFS.h is not! #include <threadSafeFS.h> prior to #including <telnetServer.h>
                 #endif
         #endif
+        #ifndef TELNET_FSINFO_COMMAND
+                #ifdef __THREAD_SAFE_FS__
+                        #define TELNET_FSINFO_COMMAND 1       // 0=exclude, 1=include, tree included by default
+                #else
+                        #define TELNET_FSINFO_COMMAND 0       // 0=exclude, 1=include, tree included by default
+                #endif
+        #endif
+        #if TELNET_FSINFO_COMMAND == 1
+                #ifndef __THREAD_SAFE_FS__
+                        #error Telnet fsinfo command is included but threadSafeFS.h is not! #include <threadSafeFS.h> prior to #including <telnetServer.h>
+                #endif
+        #endif
         #ifndef TELNET_MKDIR_COMMAND
                 #ifdef __THREAD_SAFE_FS__
                         #define TELNET_MKDIR_COMMAND 1      // 0=exclude, 1=include, mkdir included by default
@@ -280,6 +292,9 @@ Edit/view: https://cascii.app/e83d5
                         #error Telnet lsof command is included but threadSafeFS.h is not! #include <threadSafeFS.h> prior to #including <telnetServer.h>
                 #endif
         #endif
+        #ifndef TELNET_DIGITAL_READ_COMMAND
+                #define TELNET_DIGITAL_READ_COMMAND 1   // 0=exclude, 1=include, digitalRead is included by default
+        #endif
 
 
         #if (TELNET_UPTIME_COMMAND == 1) || (TELNET_DATE_COMMAND == 1) || (TELNET_NTPDATE_COMMAND == 1)
@@ -306,6 +321,10 @@ Edit/view: https://cascii.app/e83d5
         #endif
         #if TELNET_VI_COMMAND == 1
                 #include <vector.hpp>               // for vi command only, include LightweightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
+        #endif
+        #if TELNET_DIGITAL_READ_COMMAND == 1
+                #include <driver/gpio.h>
+                #include <hal/gpio_hal.h>                               
         #endif
 
 
@@ -515,6 +534,9 @@ Edit/view: https://cascii.app/e83d5
                                 #if TELNET_TREE_COMMAND == 1
                                         const char *__tree__ (char *directoryName);
                                 #endif
+                                #if TELNET_FSINFO_COMMAND == 1
+                                        Cstring<300> __fsinfo__ ();
+                                #endif
                                 #if TELNET_MKDIR_COMMAND == 1
                                         Cstring<300> __mkdir__ (char *directoryName);
                                 #endif
@@ -542,7 +564,10 @@ Edit/view: https://cascii.app/e83d5
                                 #endif
                                 #if TELNET_LSOF_COMMAND == 1
                                         Cstring<300> __lsof__ ();
-                                #endif                                
+                                #endif
+                                #if TELNET_DIGITAL_READ_COMMAND == 1
+                                        Cstring<300> __digitalRead__ (bool follow, byte GPIOS [TELNET_SESSION_MAX_ARGC], byte count);
+                                #endif                 
                         };
 
                 private:
@@ -606,6 +631,11 @@ Edit/view: https://cascii.app/e83d5
                                                                 ) : tcpConnection_t (connectionSocket, clientIP, serverIP),
                                                                         __getUserHomeDirectory__ (getUserHomeDirectory),
                                                                         __telnetCommandHandlerCallback__ (telnetCommandHandlerCallback) {
+                        #ifdef __THREAD_SAFE_FS__ // if threadSafeFS wrapper is included ...
+                                #if TSFS_FS_COUNT == 1 // and there is only one file system wrapped ...
+                                        __fileSystem__ = &tsfs; // then tsfs is defined so we can use it as a file system that telnetServer will use
+                                #endif                                
+                        #endif
                 }
 
         #ifdef __THREAD_SAFE_FS__
@@ -944,7 +974,7 @@ Edit/view: https://cascii.app/e83d5
                 __telnetCommandHandlerCallback__ (1, &sessionState, this);
 
                 if (__prompt__) 
-                cout << (dmesgQueue << "[telnetConn] " << __userName__ << " logged out" ); // if prompt is set, we know that login was successful
+                        cout << (dmesgQueue << "[telnetConn] " << __userName__ << " logged out" ); // if prompt is set, we know that login was successful
 
         // ----- this is where Telnet connection ends, the socket will be closed upon return -----
 
@@ -1165,6 +1195,13 @@ Edit/view: https://cascii.app/e83d5
                                                                 }
                 #endif
 
+                #if TELNET_FSINFO_COMMAND == 1
+                        else if (telnetArgv0Is ("fsinfo"))      {
+                                                                        if (argc == 1)  return __fsinfo__ (); 
+                                                                                        return "Wrong syntax, use fsinfo";
+                                                                }
+                #endif
+
                 #if TELNET_MKDIR_COMMAND == 1
                         else if (telnetArgv0Is ("mkdir"))       { return argc == 2 ? __mkdir__ (argv [1]) : "Wrong syntax, use mkdir <directoryName>"; } 
                 #endif
@@ -1216,6 +1253,28 @@ Edit/view: https://cascii.app/e83d5
                         else if (telnetArgv0Is ("lsof"))        {
                                                                         if (argc == 1)  return __lsof__ ();
                                                                                         return "Wrong syntax, use lsof";    
+                                                                }
+                #endif
+
+                #if TELNET_DIGITAL_READ_COMMAND == 1
+                        else if (telnetArgv0Is ("digitalRead")) {
+                                                                        bool follow = false;
+                                                                        byte GPIOS [TELNET_SESSION_MAX_ARGC];
+                                                                        byte count = 0;
+                                                                        for (byte i = 1; i < argc; i++) {
+                                                                                if (strcmp (argv [i], "-f") == 0) {
+                                                                                        follow = true;
+                                                                                } else {
+                                                                                        int gpio = atoi (argv [i]);
+                                                                                        if ((gpio == 0 && strcmp (argv [i], "0") != 0) || gpio < 0 || gpio > 50)
+                                                                                                return "Invalid gpio";
+                                                                                        GPIOS [count ++] = gpio;
+                                                                                }
+                                                                        }
+                                                                        if (count == 0)
+                                                                                return "Wrong syntax, use digitalRead [-f] <gpio> [<gpio2>] ...";
+                                                                        
+                                                                        return __digitalRead__ (follow, GPIOS, count);
                                                                 }
                 #endif
 
@@ -1399,7 +1458,7 @@ Edit/view: https://cascii.app/e83d5
                                                         #endif
                                                 #endif
 
-                                                #if TELNET_LS_COMMAND == 1 or TELNET_TREE_COMMAND == 1 or TELNET_MKDIR_COMMAND == 1 or TELNET_RMDIR_COMMAND == 1 or TELNET_CD_COMMAND == 1 or TELNET_PWD_COMMAND == 1 or TELNET_CAT_COMMAND == 1 or TELNET_VI_COMMAND == 1 or  TELNET_CP_COMMAND == 1 or TELNET_RM_COMMAND == 1 or  TELNET_LSOF_COMMAND == 1
+                                                #if TELNET_LS_COMMAND == 1 or TELNET_TREE_COMMAND == 1 or TELNET_FSINFO_COMMAND == 1 or TELNET_MKDIR_COMMAND == 1 or TELNET_RMDIR_COMMAND == 1 or TELNET_CD_COMMAND == 1 or TELNET_PWD_COMMAND == 1 or TELNET_CAT_COMMAND == 1 or TELNET_VI_COMMAND == 1 or  TELNET_CP_COMMAND == 1 or TELNET_RM_COMMAND == 1 or  TELNET_LSOF_COMMAND == 1
                                                         "\r\n  file commands:"
                                                 #endif
                                                 #if TELNET_LS_COMMAND == 1
@@ -1407,6 +1466,9 @@ Edit/view: https://cascii.app/e83d5
                                                 #endif
                                                 #if TELNET_TREE_COMMAND == 1
                                                         "\r\n      tree [<directoryName>]"
+                                                #endif
+                                                #if TELNET_FSINFO_COMMAND == 1
+                                                        "\r\n      fsinfo"
                                                 #endif
                                                 #if TELNET_MKDIR_COMMAND == 1
                                                         "\r\n      mkdir <directoryName>"
@@ -1435,6 +1497,14 @@ Edit/view: https://cascii.app/e83d5
                                                 #if TELNET_LSOF_COMMAND == 1
                                                         "\r\n      lsof"
                                                 #endif
+
+                                                #if TELNET_DIGITAL_READ_COMMAND == 1
+                                                        "\r\n  run-time debugging:"
+                                                #endif
+                                                #if TELNET_DIGITAL_READ_COMMAND == 1
+                                                        "\r\n      digitalRead [-f] <gpio1> [<gpio2>] ..."
+                                                #endif
+
                                                 USER_DEFINED_TELNET_HELP_TEXT;
 
                 sendString (telnetHelpText);
@@ -2199,6 +2269,23 @@ Edit/view: https://cascii.app/e83d5
                 }
         #endif
 
+        #if TELNET_FSINFO_COMMAND == 1
+                Cstring<300> telnetServer_t::telnetConnection_t::__fsinfo__ () {
+                        if (!__fileSystem__)                                                                    return "Error, file system was not passed to the Telnet server constructor";
+                        if (!__fileSystem__->mounted ())                                                        return "File system not mounted. You may have to format flash disk first";
+
+                        Cstring<300> retVal;
+                        sprintf (retVal.c_str (), 
+                                 "%s mounted:\r\n   free:  %5d KB\r\n   used:  %5d KB\r\n   total: %5d KB", 
+                                 __fileSystem__->name (), 
+                                 __fileSystem__->freeBytes () / 1024, 
+                                 __fileSystem__->usedBytes () / 1024, 
+                                 __fileSystem__->totalBytes () / 1024);
+
+                        return retVal;
+                }
+        #endif
+
         #if TELNET_MKDIR_COMMAND == 1
                 Cstring<300> telnetServer_t::telnetConnection_t::__mkdir__ (char *directoryName) { 
                         if (!__fileSystem__)                                                                    return "Error, file system was not passed to the Telnet server constructor";
@@ -2791,6 +2878,52 @@ Edit/view: https://cascii.app/e83d5
                                 }
                         }
                         xSemaphoreGive (getFsMutex ());
+                        return "\r";
+                }
+        #endif
+
+        #if TELNET_DIGITAL_READ_COMMAND == 1
+                Cstring<300> telnetServer_t::telnetConnection_t::__digitalRead__ (bool follow, byte GPIOS [TELNET_SESSION_MAX_ARGC], byte count) {
+                        // digitalRead GPIOs without changing their mode
+
+                        gpio_hal_context_t __gpio_hal__ = {
+                                .dev = GPIO_HAL_GET_HW (GPIO_PORT_0)
+                        };        
+
+                        Cstring<300> buf; // more than enough for TELNET_SESSION_MAX_ARGC arguments
+                        for (byte i = 0; i < count; i++) {
+                                byte gpio = GPIOS [i];
+                                gpio_hal_input_enable (&__gpio_hal__, gpio);
+                                buf += (byte) gpio_hal_get_level (&__gpio_hal__, gpio);
+                                buf += " ";
+                        } 
+                        if (!follow)
+                                return buf;
+
+                        if (sendString (buf) <= 0) return "\r";
+                        // -follow?
+                        int d = 0;
+                        while (true) {
+                                delay (100);
+
+                                // stop waiting if a key is pressed
+                                if (peekChar ()) {
+                                        recvChar (); 
+                                        return "\r"; // return if user pressed Ctrl-C or any key
+                                } 
+
+                                if (++d >= 9) {
+                                        d = 0;
+
+                                        buf = "\r\n";
+                                        for (int i = 0; i < count; i++) {
+                                                byte gpio = GPIOS [i];
+                                                buf += (byte) gpio_hal_get_level (&__gpio_hal__, gpio);
+                                                buf += " ";
+                                        } 
+                                        if (sendString (buf) <= 0) return "\r";
+                                }
+                        }
                         return "\r";
                 }
         #endif

@@ -5,7 +5,7 @@
     This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
   
 
-    May 22, 2026, Bojan Jurca
+    Aug 12, 2026, Bojan Jurca
 
 
     Multitasking/thread-safe classes and functions: 
@@ -220,11 +220,52 @@ Edit/view: https://cascii.app/e83d5
 
     public: 
 
-        httpServer_t (String (*httpRequestHandlerCallback) (const char *httpRequest, httpConnection_t *hcn),
-                      void (*wsRequestHandlerCallback) (const char *httpRequest, webSocket_t *webSck) = NULL,
-                      int serverPort = 80,
-                      bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
-                      bool runListenerInItsOwnTask = true);
+        httpServer_t (String (*httpRequestHandlerCallback) (const char *httpRequest, httpServer_t::httpConnection_t *hcn) = NULL,
+                               void (*wsRequestHandlerCallback) (const char *httpRequest, httpServer_t::webSocket_t *webSck) = NULL,
+                               int serverPort = 80,
+                               bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
+                               bool runListenerInItsOwnTask = true
+                     ) : tcpServer_t (serverPort, firewallCallback, runListenerInItsOwnTask),
+                                      __httpRequestHandlerCallback__ (httpRequestHandlerCallback),
+                                      __wsRequestHandlerCallback__ (wsRequestHandlerCallback) {
+                        #ifdef __THREAD_SAFE_FS__
+                            // this part will not compile with .cpp
+
+                            #ifdef __THREAD_SAFE_FS__ // if threadSafeFS wrapper is included ...
+                                #if TSFS_FS_COUNT == 1 // and there is only one file system wrapped ...
+                                    __fileSystem__ = &tsfs; // then tsfs is defined so we can use it as a file system that telnetServer will use
+
+                                    // get address of a function that handles files
+                                    __replyWithFileContentPtr__ = &webSocket_t::__replyWithFileContent__;
+
+                                    // create directory structure and default index.html
+                                    if (!tsfs.isDirectory ("/var/www/html")) {
+                                        tsfs.mkdir ("/var");
+                                        tsfs.mkdir ("/var/www");
+                                        tsfs.mkdir ("/var/www/html");
+                                        if (!tsfs.isDirectory ("/var/www/html"))
+                                            cout << ( dmesgQueue << "[httpServer] " "can't create /var/www/html" );
+                                    }
+                                    if (!tsfs.isFile ("/var/www/html/index.html")) {
+                                        threadSafeFS::File f = tsfs.open ("/var/www/html/index.html", "w");
+                                        if (f) {
+                                            f.print ("<!DOCTYPE html>\n"
+                                                     "<html lang='en'>\n"
+                                                     "   <head>\n"
+                                                     "      <meta charset='UTF-8'>\n"
+                                                     "      <title>Hello world!</title>\n"
+                                                     "   </head>\n"
+                                                     "   <body>\n"
+                                                     "      <h1>Hello world!</h1>\n"
+                                                     "   </body>\n"
+                                                     "</html>");
+                                            f.close ();
+                                        }
+                                    }
+                                #endif
+                            #endif
+                        #endif
+        }
 
         #ifdef __THREAD_SAFE_FS__
             // this part will not compile with .cpp
@@ -267,7 +308,6 @@ Edit/view: https://cascii.app/e83d5
                             f.close ();
                         }
                     }
-
                 }
             }
 
@@ -276,7 +316,7 @@ Edit/view: https://cascii.app/e83d5
         tcpConnection_t *__createConnectionInstance__ (int connectionSocket, char *clientIP, char *serverIP) override;
 
         // accept any connection, the client will get notified in __createConnectionInstance__
-        inline tcpConnection_t *accept () __attribute__((always_inline)) { 
+        inline tcpConnection_t *accept () __attribute__((always_inline)) {             
             if (heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT) < HTTP_CONNECTION_STACK_SIZE) { 
                 // There is not a memory block large enough evailable to start new task that would handle the new connection.
                 // If we ::accept () the connection now we would only have to report503 "HTTP/1.0 503 Service unavailable

@@ -5,7 +5,7 @@
     This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
   
 
-    May 22, 2026, Bojan Jurca
+    Aug 12, 2026, Bojan Jurca
 
 
     Multitasking/thread-safe classes and functions: 
@@ -569,17 +569,6 @@ void httpServer_t::webSocket_t::__runConnectionTask__ () {
 
 
 // ----- httpServer_t implementation -----
-
-httpServer_t::httpServer_t (String (*httpRequestHandlerCallback) (const char *httpRequest, httpServer_t::httpConnection_t *hcn),
-                            void (*wsRequestHandlerCallback) (const char *httpRequest, httpServer_t::webSocket_t *webSck),
-                            int serverPort,
-                            bool (*firewallCallback) (char *clientIP, char *serverIP),
-                            bool runListenerInItsOwnTask
-                           ) : tcpServer_t (serverPort, firewallCallback, runListenerInItsOwnTask),
-                               __httpRequestHandlerCallback__ (httpRequestHandlerCallback),
-                               __wsRequestHandlerCallback__ (wsRequestHandlerCallback) {
-
-}
 
 tcpConnection_t *httpServer_t::__createConnectionInstance__ (int connectionSocket, char *clientIP, char *serverIP) {
 

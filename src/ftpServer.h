@@ -5,7 +5,7 @@
     This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
   
 
-    May 22, 2026, Bojan Jurca
+    Aug 12, 2026, Bojan Jurca
 
 
     Multitasking/thread-safe classes and functions: 
@@ -168,10 +168,30 @@ Edit/view: https://cascii.app/e83d5
                          bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
                          bool runListenerInItsOwnTask = true);
 
+            #if TSFS_FS_COUNT == 1 // there is only one file system wrapped ...
+                ftpServer_t (Cstring<255> (*getUserHomeDirectory) (const Cstring<64>& userName, const Cstring<64>& password) = NULL,
+                             int serverPort = 21,
+                             bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
+                             bool runListenerInItsOwnTask = true);
+            #endif
+
             tcpConnection_t *__createConnectionInstance__ (int connectionSocket, char *clientIP, char *serverIP) override;
 
             // accept any connection, the client will get notified in __createConnectionInstance__
             inline tcpConnection_t *accept () __attribute__((always_inline)) { return tcpServer_t::accept (); }
     };
+
+
+    // ----- ftpServer_t implementation -----
+
+    #if TSFS_FS_COUNT == 1 // there is only one file system wrapped ...
+        ftpServer_t::ftpServer_t (Cstring<255> (*getUserHomeDirectory) (const Cstring<64>& userName, const Cstring<64>& password),
+                                  int serverPort,
+                                  bool (*firewallCallback) (char *clientIP, char *serverIP),
+                                  bool runListenerInItsOwnTask) : tcpServer_t (serverPort, firewallCallback, runListenerInItsOwnTask),
+                                                                  __fileSystem__ (tsfs), // ... use the only file system wrapper
+                                                                  __getUserHomeDirectory__ (getUserHomeDirectory) {
+        }
+    #endif
 
 #endif

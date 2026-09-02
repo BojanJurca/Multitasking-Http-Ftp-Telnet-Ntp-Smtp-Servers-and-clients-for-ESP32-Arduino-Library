@@ -5,7 +5,7 @@
     This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
   
 
-    May 22, 2026, Bojan Jurca
+    Aug 12, 2026, Bojan Jurca
 
 
     Multitasking/thread-safe classes and functions: 
@@ -135,18 +135,16 @@ Edit/view: https://cascii.app/e83d5
             #ifdef __THREAD_SAFE_FS__
                 // this part will not compile with .cpp
 
+        private:
+
                 // constructor with a file system
-                httpsServer_t (threadSafeFS::FS& fileSystem,
-                               String (*httpRequestHandlerCallback) (const char *httpRequest, httpConnection_t *hcn) = NULL,
-                               void (*wsRequestHandlerCallback) (const char *httpRequest, webSocket_t *webSck) = NULL,
-                               int serverPort = 443,
-                               bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
-                               bool runListenerInItsOwnTask = true) : httpServer_t (fileSystem,
-                                                                                    httpRequestHandlerCallback,
-                                                                                    wsRequestHandlerCallback,
-                                                                                    serverPort,
-                                                                                    firewallCallback,
-                                                                                    runListenerInItsOwnTask) {
+                void __file_constructor__ (threadSafeFS::FS& fileSystem,
+                                           String (*httpRequestHandlerCallback) (const char *httpRequest, httpConnection_t *hcn),
+                                           void (*wsRequestHandlerCallback) (const char *httpRequest, webSocket_t *webSck),
+                                           int serverPort,
+                                           bool (*firewallCallback) (char *clientIP, char *serverIP),
+                                           bool runListenerInItsOwnTask) {
+
                     __freeBuffersWhenDestructed__ = true;
 
                     // create directory structure and test sever-key.der and server-cert.der files
@@ -285,6 +283,40 @@ Edit/view: https://cascii.app/e83d5
                     }
                 }
 
+        public:
+
+                // constructor with a file system
+                httpsServer_t (threadSafeFS::FS& fileSystem,
+                               String (*httpRequestHandlerCallback) (const char *httpRequest, httpConnection_t *hcn) = NULL,
+                               void (*wsRequestHandlerCallback) (const char *httpRequest, webSocket_t *webSck) = NULL,
+                               int serverPort = 443,
+                               bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
+                               bool runListenerInItsOwnTask = true) : httpServer_t (fileSystem,
+                                                                                    httpRequestHandlerCallback,
+                                                                                    wsRequestHandlerCallback,
+                                                                                    serverPort,
+                                                                                    firewallCallback,
+                                                                                    runListenerInItsOwnTask) {
+
+                    __file_constructor__ (fileSystem, httpRequestHandlerCallback, wsRequestHandlerCallback, serverPort, firewallCallback, runListenerInItsOwnTask);
+                }
+
+                #if TSFS_FS_COUNT == 1 // there is only one file system wrapped ...
+                    httpsServer_t (String (*httpRequestHandlerCallback) (const char *httpRequest, httpConnection_t *hcn) = NULL,
+                                   void (*wsRequestHandlerCallback) (const char *httpRequest, webSocket_t *webSck) = NULL,
+                                   int serverPort = 443,
+                                   bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
+                                   bool runListenerInItsOwnTask = true) : httpServer_t (tsfs, // ... use this one
+                                                                                        httpRequestHandlerCallback,
+                                                                                        wsRequestHandlerCallback,
+                                                                                        serverPort,
+                                                                                        firewallCallback,
+                                                                                        runListenerInItsOwnTask) {
+
+                        __file_constructor__ (tsfs, httpRequestHandlerCallback, wsRequestHandlerCallback, serverPort, firewallCallback, runListenerInItsOwnTask);
+                    }
+                #endif
+
             #endif
 
 
@@ -324,8 +356,8 @@ Edit/view: https://cascii.app/e83d5
         }
         tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
         if (__freeBuffersWhenDestructed__) {
-        if (__server_key_der__) free (__server_key_der__);
-        if (__server_cert_der__) free (__server_cert_der__);
+            if (__server_key_der__) free (__server_key_der__);
+            if (__server_cert_der__) free (__server_cert_der__);
         }
     }
 

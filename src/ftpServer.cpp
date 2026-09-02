@@ -664,7 +664,7 @@ const char *ftpServer_t::ftpControlConnection_t::__STOR__ (char *fileName) {
 // ----- ftpServer_t implementation -----
 
 ftpServer_t::ftpServer_t (threadSafeFS::FS& fileSystem,
-                          Cstring<255> (*getUserHomeDirectory) (const Cstring<64>& userName,const Cstring<64>& password),
+                          Cstring<255> (*getUserHomeDirectory) (const Cstring<64>& userName, const Cstring<64>& password),
                           int serverPort,
                           bool (*firewallCallback) (char *clientIP, char *serverIP),
                           bool runListenerInItsOwnTask) : tcpServer_t (serverPort, firewallCallback, runListenerInItsOwnTask),
