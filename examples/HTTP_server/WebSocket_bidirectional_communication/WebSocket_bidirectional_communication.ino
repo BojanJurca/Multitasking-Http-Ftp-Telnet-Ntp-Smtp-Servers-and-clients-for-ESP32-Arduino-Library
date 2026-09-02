@@ -166,8 +166,6 @@ void wsRequestHandlerCallback (const char *httpRequest, httpServer_t::webSocket_
 }
 
 
-httpServer_t *httpServer = NULL;
-
 void setup () {
   Serial.begin (115200);
 
@@ -175,21 +173,20 @@ void setup () {
   WiFi.begin ("YOUR_SSID", "YOUR_PASSWORD");
 
 
-  // 4️⃣ Create HTTP server instance passing it callback functions that will handle the HTTP requests and WebSocket requests 
-                                                                            // optional arguments:
-                                                                            // threadSafeFS::FS& fileSystem,
-  httpServer = new (std::nothrow) httpServer_t (httpRequestHandlerCallback, // String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpConnection_t *hcn) = NULL,
-                                                wsRequestHandlerCallback);  // void (*wsRequestHandlerCallback) (const char *httpRequest, httpServer_t::webSocket_t *webSck) = NULL,
-                                                                            // int serverPort = 80,
-                                                                            // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
-                                                                            // bool runListenerInItsOwnTask = true
-
+  // 4️⃣ Create static (so it would contiune to run even when setup finishes) HTTP server instance
+                                                              // Optional arguments (when file system is not included):  
+  static httpServer_t httpServer (httpRequestHandlerCallback, // String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpConnection_t *hcn) = NULL,
+                                  wsRequestHandlerCallback);  // SET THIS ARGUMENT: void (*wsRequestHandlerCallback) (const char *httpRequest, httpServer_t::webSocket_t *webSck) = NULL,
+                                                              // int serverPort = 80,
+                                                              // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
+                                                              // bool runListenerInItsOwnTask = true
 
   // Check if HTTP server instance is created && HTTP server is running
-  if (httpServer && *httpServer)
+  if (httpServer)
     Serial.println ("HTTP server started");
   else
     Serial.println ("HTTP server did not start");
+
 
   // Use web browser to connect to ESP32's IP address
   while (WiFi.localIP () == IPAddress (0, 0, 0, 0)) { // wait until we get IP from router's DHCP
@@ -199,7 +196,7 @@ void setup () {
   Serial.print ("Got IP addess: "); Serial.println (WiFi.localIP ());
 
 
-  // ...
+  // ... your code here
 }
 
 void loop () {
