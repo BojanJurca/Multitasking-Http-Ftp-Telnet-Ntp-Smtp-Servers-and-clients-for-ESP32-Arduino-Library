@@ -1,7 +1,7 @@
 /*
   **Note:** Each example demonstrates only a specific feature or use case.  
   The complete, fully integrated server solution is available here:  
-  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino/blob/master/PROJECT_STATE.md
+  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino/blob
 */
 
 
@@ -40,8 +40,9 @@ bool firewallCallback (char *clientIP, char *serverIP) {
 
   // Must be reentrant !!
 
-  // accept only connections from local network, for example 10.18.1.*
-  if (strstr (clientIP, "10.18.1.") == clientIP)
+
+  // accept only connections from local network, for example:
+  if (strstr (clientIP, "192.168.1.") == clientIP)
     return true;
   else 
     return false; 
@@ -56,14 +57,12 @@ void setup () {
 
 
   // 2️⃣ create HTTP server instance with firewall callback function
-                                                                            // optional arguments:
-                                                                            // threadSafeFS::FS& fileSystem,
+                                                                            // Optional arguments (when file system is not included):
   httpServer = new (std::nothrow) httpServer_t (httpRequestHandlerCallback, // String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpConnection_t *hcn) = NULL,
                                                 NULL,                       // void (*wsRequestHandlerCallback) (const char *httpRequest, httpServer_t::webSocket_t *webSck) = NULL,
                                                 80,                         // int serverPort = 80,
-                                                firewallCallback);          // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
+                                                firewallCallback);          // SET THIS ARGUMENT: bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
                                                                             // bool runListenerInItsOwnTask = true
-
 
   // Check if HTTP server instance is created && HTTP server is running
   if (httpServer && *httpServer)
@@ -79,7 +78,7 @@ void setup () {
   Serial.print ("Got IP addess: "); Serial.println (WiFi.localIP ());
 
 
-  // ...
+  // ... your code here
 }
 
 void loop () {
