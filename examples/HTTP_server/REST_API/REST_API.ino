@@ -1,7 +1,7 @@
 /*
   **Note:** Each example demonstrates only a specific feature or use case.  
   The complete, fully integrated server solution is available here:  
-  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino/blob/master/PROJECT_STATE.md
+  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
 */
 
 
@@ -92,8 +92,7 @@ void setup () {
   WiFi.begin ("YOUR_SSID", "YOUR_PASSWORD");
 
   // Create HTTP server instance passing it callback function that will handle the HTTP requests 
-                                                                            // optional arguments:
-                                                                            // threadSafeFS::FS& fileSystem,
+                                                                            // Optional arguments (when file system is not included):
   httpServer = new (std::nothrow) httpServer_t (httpRequestHandlerCallback);// String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpConnection_t *hcn) = NULL,
                                                                             // void (*wsRequestHandlerCallback) (const char *httpRequest, httpServer_t::webSocket_t *webSck) = NULL,
                                                                             // int serverPort = 80,
@@ -118,7 +117,7 @@ void setup () {
   pinMode (LED_BUILTIN, INPUT | OUTPUT);
 
 
-  // ...
+  // ... your code here
 }
 
 void loop () {
