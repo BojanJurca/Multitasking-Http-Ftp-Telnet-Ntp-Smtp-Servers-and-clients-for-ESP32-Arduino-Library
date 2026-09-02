@@ -1,7 +1,7 @@
 /*
   **Note:** Each example demonstrates only a specific feature or use case.  
   The complete, fully integrated server solution is available here:  
-  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino/blob/master/PROJECT_STATE.md
+  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
 */
 
 
@@ -37,7 +37,8 @@ String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpCo
   }
 
 
-  // 2️⃣ Use IP exlicit addresses in the main HTML page
+  // 2️⃣ You can use IP exlicit addresses in the main HTML page and 
+  // download it to your computer if you wish, server's API interface will stil be accessible from there
   if (httpRequestIs ("GET / ") || httpRequestIs ("GET /index.html ")) {
     return  "<!DOCTYPE html>\n"
             "<html lang='en'>\n"
@@ -100,6 +101,7 @@ void setup () {
   // Start WiFi connection
   WiFi.begin ("YOUR_SSID", "YOUR_PASSWORD");
 
+
   // Create HTTP server instance passing it callback function that will handle the HTTP requests 
                                                                             // optional arguments:
                                                                             // threadSafeFS::FS& fileSystem,
@@ -108,7 +110,6 @@ void setup () {
                                                                             // int serverPort = 80,
                                                                             // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
                                                                             // bool runListenerInItsOwnTask = true
-
 
   // Check if HTTP server instance is created && HTTP server is running
   if (httpServer && *httpServer)
@@ -127,7 +128,7 @@ void setup () {
   pinMode (LED_BUILTIN, INPUT | OUTPUT);
 
 
-  // ...
+  // ... your code here
 }
 
 void loop () {
