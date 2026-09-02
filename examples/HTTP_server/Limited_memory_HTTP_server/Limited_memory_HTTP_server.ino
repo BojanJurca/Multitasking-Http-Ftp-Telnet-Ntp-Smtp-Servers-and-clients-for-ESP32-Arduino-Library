@@ -1,7 +1,7 @@
 /*
   **Note:** Each example demonstrates only a specific feature or use case.  
   The complete, fully integrated server solution is available here:  
-  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino/blob/master/PROJECT_STATE.md
+  https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
 */
 
 
@@ -32,34 +32,13 @@ String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpCo
   return "";
 }
 
-httpServer_t *httpServer = NULL;
 
 void setup () {
   Serial.begin (115200);
 
   WiFi.begin ("YOUR_SSID", "YOUR_PASSWORD");
 
-
-  // 1️⃣ Create HTTP server instance without listener's task (runListenerInItsOwnTask = false)
-  // HTTP server's listener would have to host in the loop task in this case, 
-  // not having a seperate listening task would save 3 KB of memory
-                                                                            // optional arguments:
-                                                                            // threadSafeFS::FS& fileSystem,
-  httpServer = new (std::nothrow) httpServer_t (httpRequestHandlerCallback, // String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpConnection_t *hcn) = NULL, 
-                                                NULL,                       // void (*wsRequestHandlerCallback) (const char *httpRequest, httpServer_t::webSocket_t *webSck) = NULL,
-                                                80,                         // int serverPort = 80,
-                                                NULL,                       // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
-                                                false);                     // bool runListenerInItsOwnTask = true
-                                                                              
-
-  // check if FTP server instance is created && FTP server is running
-  if (httpServer && *httpServer)
-    Serial.println ("HTTP server started");
-  else
-    Serial.println ("HTTP server did not start");
-
-
- // Use web browser to connect to ESP32's IP address
+  // Use web browser to connect to ESP32's IP address
   while (WiFi.localIP () == IPAddress (0, 0, 0, 0)) { // wait until we get IP from router's DHCP
       delay (1000); 
       Serial.println ("   ."); 
@@ -67,16 +46,32 @@ void setup () {
   Serial.print ("Got IP addess: "); Serial.println (WiFi.localIP ());
 
 
-  // ...
+  // ... your code here
 }
 
 void loop () {
 
 
-  // 2️⃣  Periodically call accept
+  // 1️⃣ Create static (so it would contiune to run even when loop finishes) HTTP server instance
+                                                              // Optional arguments (when file system is not included):
+  static httpServer_t httpServer (httpRequestHandlerCallback, // String httpRequestHandlerCallback (const char *httpRequest, httpServer_t::httpConnection_t *hcn) = NULL, 
+                                  NULL,                       // void (*wsRequestHandlerCallback) (const char *httpRequest, httpServer_t::webSocket_t *webSck) = NULL,
+                                  80,                         // int serverPort = 80,
+                                  NULL,                       // bool (*firewallCallback) (char *clientIP, char *serverIP) = NULL,
+                                  false);                     // SET THIS ARGUMENT TO FALSE: bool runListenerInItsOwnTask = true
+  // this would spare roughly 3 KB of memory that listener task would use otherwise                                   
+
+  /* Check if HTTP server is running
   if (httpServer)
-    httpServer->accept ();
+    Serial.println ("HTTP server started");
+  else
+    Serial.println ("HTTP server did not start");
+  */
 
 
-    // ... add your own code - it shoud not block for too long
+  // 2️⃣ Periodically call accept yourself since the listener is not running (in its own task)
+  httpServer.accept ();
+
+
+  // ... your code here - should not block for too long - this would also block calling accept ()
 }
