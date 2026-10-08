@@ -5,7 +5,7 @@
     This file is part of ESP32 Multitasking Network Suite: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
   
 
-    May 22, 2026, Bojan Jurca
+    Oct 10, 2026, Bojan Jurca
 
 
     Multitasking/thread-safe classes and functions: 
@@ -126,9 +126,15 @@ Edit/view: https://cascii.app/e83d5
             // server constructor
             tlsConnection_t (int socket, const char* clientIP, const char* serverIP, WOLFSSL_CTX* ctx);
 
-            // client constructor
+            // client constructor - without server certificate verification
             tlsConnection_t (const char *serverName, int serverPort, time_t idleTimeout);
-            
+
+            // client constructor - with server certificate verification
+            // file system is needed so the client scans /etc/ssl/ca-trust directory for trusted CA .crt files
+            #ifdef __THREAD_SAFE_FS__
+                tlsConnection_t (threadSafeFS::FS& fileSystem, const char *serverName, int serverPort, time_t idleTimeout, bool verifyServerCertificate);
+            #endif
+
             // used when tlsConnection is used by TLS server  
             bool tlsServerHandshake ();
 
@@ -159,11 +165,14 @@ Edit/view: https://cascii.app/e83d5
             //          -1 in case of error
             int sendBlock (void *buf, size_t len) override;
 
+            WOLFSSL *ssl ();
+            WOLFSSL_CTX *ctx ();
+
         private:
 
             WOLFSSL_CTX *__ctx__ = NULL;
             WOLFSSL *__ssl__ = NULL;            
-            const char *__cipherName__ = "";
+            const char *__cipherName__ = "None";
 
             static int IORecvCallback (WOLFSSL* ssl, char* buf, int sz, void* ctx);
             static int IOSendCallback (WOLFSSL* ssl, char* buf, int sz, void* ctx);
@@ -180,7 +189,8 @@ Edit/view: https://cascii.app/e83d5
         __ssl__ = wolfSSL_new (ctx);
         if (!__ssl__) {
             __errText__ = "wolfSSL_new failed"; 
-            cout << ( dmesgQueue << "[tlsConn] " "wolfSSL_new failed" );
+            dmesgQueue << "[tlsConn] " "wolfSSL_new failed";
+            Serial.printf ("[tlsConn] " "wolfSSL_new failed" " free=%u largest=%u min=%u %s, %i, %s\n", heap_caps_get_free_size (MALLOC_CAP_DEFAULT), heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT), heap_caps_get_minimum_free_size (MALLOC_CAP_DEFAULT), __FILE__, __LINE__, __func__);
             return;
         }
 
@@ -192,7 +202,7 @@ Edit/view: https://cascii.app/e83d5
         wolfSSL_SetIOWriteCtx (__ssl__, this);
     }
 
-    // client constructor
+    // client constructor - without trusted CA certificate verification
     tlsConnection_t::tlsConnection_t (const char *serverName, int serverPort, time_t idleTimeout) : tcpConnection_t (serverName, serverPort) {
         if (*__errText__)
             return;
@@ -200,14 +210,24 @@ Edit/view: https://cascii.app/e83d5
         tcpConnection_t::setIdleTimeout (idleTimeout);
 
         // create context
-        __ctx__ = wolfSSL_CTX_new (wolfTLSv1_3_client_method ());
+        // __ctx__ = wolfSSL_CTX_new (wolfSSLv23_server_method ());
+        __ctx__ = wolfSSL_CTX_new (wolfTLSv1_2_client_method ());
+		/*
+		#if CONFIG_IDF_TARGET_ESP32S2
+			__ctx__ = wolfSSL_CTX_new (wolfTLSv1_2_client_method ());
+		#else
+			__ctx__ = wolfSSL_CTX_new (wolfTLSv1_3_client_method ());
+		#endif
+        */
+		
         if (!__ctx__) {
             __errText__ = "wolfSSL_CTX_new failed"; 
-            cout << ( dmesgQueue << "[tlsConn] " "wolfSSL_CTX_new failed" );
+            dmesgQueue << "[tlsConn] " "wolfSSL_CTX_new failed";
+            Serial.printf ("[tlsConn] " "wolfSSL_CTX_new failed" " free=%u largest=%u min=%u %s, %i, %s\n", heap_caps_get_free_size (MALLOC_CAP_DEFAULT), heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT), heap_caps_get_minimum_free_size (MALLOC_CAP_DEFAULT), __FILE__, __LINE__, __func__);
             return;
         }
 
-        // don't verify server certificate (wolfSSL doesn't support server certificate verification on Arduino)
+        // don't verify server certificate during TLS handshake
         wolfSSL_CTX_set_verify (__ctx__, WOLFSSL_VERIFY_NONE, NULL);
 
         // SNI - uncommnet to use SNI
@@ -223,7 +243,8 @@ Edit/view: https://cascii.app/e83d5
         __ssl__ = wolfSSL_new (__ctx__);
         if (!__ssl__) {
             __errText__ = "wolfSSL_new failed";
-            cout << ( dmesgQueue << "[tlsConn] " "wolfSSL_new failed" );
+            dmesgQueue << "[tlsConn] " "wolfSSL_new failed";
+            Serial.printf ("[tlsConn] " "wolfSSL_new failed" " free=%u largest=%u min=%u %s, %i, %s\n", heap_caps_get_free_size (MALLOC_CAP_DEFAULT), heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT), heap_caps_get_minimum_free_size (MALLOC_CAP_DEFAULT), __FILE__, __LINE__, __func__);            
             return;
         }
 
@@ -238,6 +259,114 @@ Edit/view: https://cascii.app/e83d5
         // __errText__ is already set if failed
     }
 
+    // client constructor - with trusted CA certificate verification
+    // file system is needed so the client scans /etc/ssl/ca-trust directory for trusted CA .crt files
+    #ifdef __THREAD_SAFE_FS__
+        tlsConnection_t::tlsConnection_t (threadSafeFS::FS& fileSystem, const char *serverName, int serverPort, time_t idleTimeout, bool verifyServerCertificate) : tcpConnection_t (serverName, serverPort) {
+            if (*__errText__)
+                return;
+
+            tcpConnection_t::setIdleTimeout (idleTimeout);
+
+            // create context
+            // __ctx__ = wolfSSL_CTX_new (wolfSSLv23_server_method ());
+            __ctx__ = wolfSSL_CTX_new (wolfTLSv1_2_client_method ());
+            /*
+            #if CONFIG_IDF_TARGET_ESP32S2
+                __ctx__ = wolfSSL_CTX_new (wolfTLSv1_2_client_method ());
+            #else
+                __ctx__ = wolfSSL_CTX_new (wolfTLSv1_3_client_method ());
+            #endif
+            */
+            
+            if (!__ctx__) {
+                __errText__ = "wolfSSL_CTX_new failed"; 
+                cout << ( dmesgQueue << "[tlsConn] " "wolfSSL_CTX_new failed" );
+                return;
+            }
+
+            if (verifyServerCertificate) {
+                // verify server certificate during TLS handshake
+                wolfSSL_CTX_set_verify (__ctx__, SSL_VERIFY_PEER, NULL);
+                // scan /etc/ssl/ca-trust/*.crt trusted CA certificates 
+                for (auto f : tsfs.open ("/etc/ssl/ca-trust")) {
+                        Cstring<255> fullFileName = f.path ();
+                        if (fullFileName.endsWith (".crt")) {
+                            // DEBUG: Serial.printf ("loading trusted CA certificate %s ...\n", fullFileName.c_str ());
+                            threadSafeFS::File f = fileSystem.open (fullFileName, "r");
+                            if (f) {
+                                // unsigned char *__CA_cert_crt__ = (unsigned char *) malloc (f.size ());
+                                unsigned char *__CA_cert_crt__ = (unsigned char *) heap_caps_malloc (f.size (), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+                                unsigned int __CA_cert_crt_len__;
+                                if (__CA_cert_crt__) {
+                                    if (f.read (__CA_cert_crt__, f.size ()) == f.size ()) {
+                                        __CA_cert_crt_len__ = f.size ();
+
+                                        if (SSL_SUCCESS != wolfSSL_CTX_load_verify_buffer (__ctx__, (const unsigned char *) __CA_cert_crt__, __CA_cert_crt_len__, WOLFSSL_FILETYPE_ASN1)) {
+                                            __errText__ = "wolfSSL_CTX_load_verify_buffer failed";
+                                            cout << ( dmesgQueue << "[tlsConnection] " "wolfSSL_CTX_load_verify_buffer failed" );
+                                        }
+                                        // cout << ( dmesgQueue << "[tlsConnection] " << fullFileName << " loaded" );
+                                        // continue
+
+                                    } else {
+                                        __errText__ = "can't read trusted /etc/ssl/ca-trust/*.crt CA certificates";
+                                        cout << ( dmesgQueue << "[tlsConnection] " "can't read " << fullFileName );
+                                    }
+                                    // free (__CA_cert_crt__);
+                                    heap_caps_free (__CA_cert_crt__); 
+                                } else {
+                                    __errText__ = "out of memory";
+                                    dmesgQueue << "[tlsConnection] " "out of memory, couldn't allocate " << f.size () << " bytes";
+                                    cout << "[tlsConnection] " "out of memory, couldn't allocate " << f.size () << " bytes" " [" << __FILE__ << ", " << __LINE__ << ", " << __func__ << "]\r\n";
+                                }
+                                f.close ();
+                            } else {
+                                __errText__ = "can't read trusted /etc/ssl/ca-trust/*.crt CA certificates";
+                                cout << ( dmesgQueue << "[tlsConnection] " "can't read " << fullFileName );
+                                return;
+                            }
+                        }
+                }
+            } else {
+                // don't verify server certificate during TLS handshake
+                wolfSSL_CTX_set_verify (__ctx__, WOLFSSL_VERIFY_NONE, NULL);                
+            }
+
+
+            // SNI - uncommnet to use SNI
+            // if (wolfSSL_CTX_UseSNI (__ctx__, WOLFSSL_SNI_HOST_NAME, httpsServer, strlen (httpsServer)) != WOLFSSL_SUCCESS) {
+            //     return "UseSNI failed";
+            // }
+
+
+            // register callbacks
+            wolfSSL_SetIORecv (__ctx__, IORecvCallback);
+            wolfSSL_SetIOSend (__ctx__, IOSendCallback);
+
+            // SSL init
+            __ssl__ = wolfSSL_new (__ctx__);
+            if (!__ssl__) {
+                __errText__ = "wolfSSL_new failed";
+                dmesgQueue << "[tlsConn] " "wolfSSL_new failed";
+                Serial.printf ("[tlsConn] " "wolfSSL_new failed" " free=%u largest=%u min=%u %s, %i, %s\n", heap_caps_get_free_size (MALLOC_CAP_DEFAULT), heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT), heap_caps_get_minimum_free_size (MALLOC_CAP_DEFAULT), __FILE__, __LINE__, __func__);            
+                return;
+            }
+
+            // bind ssl to socket
+            wolfSSL_set_fd (__ssl__, getSocket ());
+
+            // "this" will be passed as ctx to IORecvCallback and IOSendCallback functions
+            wolfSSL_SetIOReadCtx (__ssl__, this);
+            wolfSSL_SetIOWriteCtx (__ssl__, this);
+
+            tlsClientHandshake ();
+            // __errText__ is already set if failed
+        }
+
+    #endif
+
+
     bool tlsConnection_t::tlsServerHandshake () {
         // tlsServerHandshake calls wolfSSL_accept which is logically part of accepting ssl connection
         // logically we would do this in tlsConnection constructor which runs in listener's task 
@@ -245,16 +374,18 @@ Edit/view: https://cascii.app/e83d5
 
         int ret = wolfSSL_accept (__ssl__); 
         if (ret != WOLFSSL_SUCCESS) {
-            char wc_error_message [81];
+            // char wc_error_message [81];
             int err = wolfSSL_get_error (__ssl__, ret);
-            wolfSSL_ERR_error_string (err, wc_error_message);
+            // wolfSSL_ERR_error_string (err, wc_error_message);
             __errText__ = "wolfSSL_accept failed";
-            cout << "[tlsConn] " "wolfSSL_accept failed: " << wc_error_message;
+            cout << "[tlsConn] " "wolfSSL_accept failed: " << err << endl;
             return false;
         }
 
         // get cipher only after the handshake is over
         __cipherName__ = wolfSSL_get_cipher (__ssl__);
+        if (!__cipherName__)
+            __cipherName__ = "None";
 
         return true;
     }
@@ -262,16 +393,18 @@ Edit/view: https://cascii.app/e83d5
     bool tlsConnection_t::tlsClientHandshake () {
         int ret = wolfSSL_connect (__ssl__);
         if (ret != SSL_SUCCESS) {
-            char wc_error_message [81];
+            // char wc_error_message [81];
             int err = wolfSSL_get_error (__ssl__, ret);
-            wolfSSL_ERR_error_string (err, wc_error_message);
+            // wolfSSL_ERR_error_string (err, wc_error_message);
             __errText__ = "wolfSSL_connect failed";
-            cout << "[tlsConn] " "wolfSSL_connect failed: " << wc_error_message;
+            cout << "[tlsConn] " "wolfSSL_connect failed: " << err << endl;
             return false;
         }
 
         // get cipher only after the handshake is over
         __cipherName__ = wolfSSL_get_cipher (__ssl__);
+        if (!__cipherName__)
+            __cipherName__ = "None";
 
         return true;
     }
@@ -291,11 +424,11 @@ Edit/view: https://cascii.app/e83d5
     int tlsConnection_t::recvBlock (void *buf, size_t len) {
         int received = wolfSSL_read (__ssl__, buf, len);
         if (received <= 0) {
-            char wc_error_message [81];
+            // char wc_error_message [81];
             int err = wolfSSL_get_error (__ssl__, received);
-            wolfSSL_ERR_error_string (err, wc_error_message);
+            // wolfSSL_ERR_error_string (err, wc_error_message);
             __errText__ = "wolfSSL_read failed";
-            cout << "[tlsConn] " "wolfSSL_read failed: " << wc_error_message;
+            cout << "[tlsConn] " "wolfSSL_read failed: " << err << endl;
         } else {
             __errText__ = "";
         }
@@ -314,11 +447,11 @@ Edit/view: https://cascii.app/e83d5
         while (receivedTotal != len - 1) { // read blocks of incoming data
             receivedThisTime = wolfSSL_read (__ssl__, buf + receivedTotal, len - receivedTotal - 1);
             if (receivedThisTime <= 0) {
-                char wc_error_message [81];
+                // char wc_error_message [81];
                 int err = wolfSSL_get_error (__ssl__, receivedThisTime);
-                wolfSSL_ERR_error_string (err, wc_error_message);
+                // wolfSSL_ERR_error_string (err, wc_error_message);
                 __errText__ = "wolfSSL_read failed";
-                cout << "[tlsConn] " "wolfSSL_read failed: " << wc_error_message;
+                cout << "[tlsConn] " "wolfSSL_read failed: " << err << endl;
                 return receivedThisTime;
             } else {
                 __errText__ = "";
@@ -346,11 +479,11 @@ Edit/view: https://cascii.app/e83d5
             int sentThisTime = wolfSSL_write (__ssl__, (char *) buf + sentTotal, len - sentTotal); 
 
             if (sentThisTime <= 0) {
-                char wc_error_message [81];
+                // char wc_error_message [81];
                 int err = wolfSSL_get_error (__ssl__, sentThisTime);
-                wolfSSL_ERR_error_string (err, wc_error_message);
+                // wolfSSL_ERR_error_string (err, wc_error_message);
                 __errText__ = "wolfSSL_write failed";
-                cout << "[tlsConn] " "wolfSSL_write failed: " << wc_error_message;
+                cout << "[tlsConn] " "wolfSSL_write failed: " << err << endl;
                 return sentThisTime;
             } else {
                 __errText__ = "";
@@ -373,7 +506,8 @@ Edit/view: https://cascii.app/e83d5
         if (n == 0)
             return WOLFSSL_CBIO_ERR_CONN_CLOSE;  // peer closed
         // n < 0 → check errno
-        switch (errno) {
+        switch (tcpConnection->errNo ()) {
+            case 0:         [[fallthrough]];
             case 11:        // EAGAIN and EWOULDBLOCK
                             return WOLFSSL_CBIO_ERR_WANT_READ;
             case 107:       // ENOTCONN
@@ -396,7 +530,8 @@ Edit/view: https://cascii.app/e83d5
         if (n == 0)
             return WOLFSSL_CBIO_ERR_CONN_CLOSE;  // peer closed
         // n < 0 → check errno
-        switch (errno) {
+        switch (tcpConnection->errNo ()) {
+            case 0:         [[fallthrough]];
             case 11:        // EAGAIN / EWOULDBLOCK
                             return WOLFSSL_CBIO_ERR_WANT_WRITE;
             case 107:       // ENOTCONN
@@ -410,6 +545,14 @@ Edit/view: https://cascii.app/e83d5
             default:
                             return WOLFSSL_CBIO_ERR_GENERAL;
         }
+    }
+
+    WOLFSSL *tlsConnection_t::ssl () {
+        return __ssl__;
+    }
+
+    WOLFSSL_CTX *tlsConnection_t::ctx () {
+        return __ctx__;
     }
 
 #endif

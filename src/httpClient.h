@@ -5,7 +5,7 @@
     This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
   
 
-    May 22, 2026, Bojan Jurca
+    Sep 9, 2026, Bojan Jurca
 
 
     Multitasking/thread-safe classes and functions: 
@@ -66,11 +66,6 @@ Edit/view: https://cascii.app/e83d5
     #include <Cstring.hpp>      // include LightweightSTL library: https://github.com/BojanJurca/Lightweight-Standard-Template-Library-STL-for-Arduino
 
 
-    // ----- functions and variables in this modul -----
-
-    String httpRequest (const char *httpServer, int httpPort, const char *httpRequest, const char *httpMethod, unsigned long timeOut);
-
-
     // ----- TUNNING PARAMETERS -----
 
     #ifndef HTTP_REPLY_TIME_OUT
@@ -83,72 +78,88 @@ Edit/view: https://cascii.app/e83d5
 
     // ----- CODE -----
 
+
+    class httpClient_t {
+        public:
+
+            // initializes httpReply, returns error string or "" for success
+            static const char *httpRequest (String& httpReply, const char *httpServer, int httpPort = 80, const char *httpAddress = "/", const char *httpMethod = "GET", unsigned long timeOut = HTTP_REPLY_TIME_OUT) {
+
+                if (!WiFi.isConnected () || WiFi.localIP () == IPAddress (0, 0, 0, 0))
+                    return "not connected to WiFi";
+
+                tcpConnection_t httpClient (httpServer, httpPort);
+                if (*httpClient.errText ())
+                    return httpClient.errText ();
+
+                httpClient.setIdleTimeout (HTTP_REPLY_TIME_OUT);
+
+                // 1. send HTTP request
+                Cstring<300> httpRequest;
+                httpRequest += httpMethod;
+                httpRequest += " ";
+                httpRequest += httpAddress;
+                httpRequest += " HTTP/1.0\r\nHost: ";
+                httpRequest += httpServer;
+                httpRequest += "\r\n\r\n"; // 1.0 HTTP does not know keep-alive directive - we want the server to close the connection immediatelly after sending the reply
+                if (httpRequest.errorFlags ())
+                    return "HTTP request too long";
+
+                switch (httpClient.sendString (httpRequest)) {
+                    case -1:  return strerror (errno);
+                    case 0:   return "connection closed by peer";
+                    default:  break; // OK
+                }
+
+                // 2. read HTTP reply
+                httpReply = "";
+                char buffer [HTTP_REPLY_BUFFER_SIZE];
+                int receivedThisTime;
+
+                while (true) { // read blocks of incoming data
+                    receivedThisTime = httpClient.recv (buffer, HTTP_REPLY_BUFFER_SIZE - 1);
+                    switch (receivedThisTime) {
+                        case -1:    // error
+                                    if (errno == 128) // ENOTSOCK (or the client closed the connection)
+                                        if (httpReply != "")
+                                            return "Content-Length mismatch"; // we could have got HTTP reply but the Content-Length is not reported correctly
+                                    return strerror (errno);
+                        case 0:     // connection closed by peer
+                                    if (httpReply != "")
+                                        return "Content-Length mismatch"; // we could have got HTTP reply but the Content-Length is not reported correctly
+                                    return "connection closed by peer";
+                        default:      // block arrived
+                                        buffer [receivedThisTime] = 0;
+                                        if (!httpReply.concat (buffer))
+                                            return "Out of memory, cannot cache the server reply";
+
+                                        // check if HTTP reply is complete
+                                        char *p = strstr (httpReply.c_str (), "\nContent-Length:");
+                                        if (p) {
+                                            p += 16;
+                                            unsigned int contentLength;
+                                            if (sscanf (p, "%u", &contentLength) == 1) {
+                                                p = strstr (p, "\r\n\r\n"); // the content comes afterwards
+                                                if (p && contentLength == strlen (p + 4))
+                                                    return ""; // success
+                                            }
+                                        }
+                                        // else continue reading
+                                        break;
+                    } // switch
+                } // while       
+                return ""; // never executes
+            }
+    };
+
+
+    [[deprecated("Use static const char *httpClient_t ().httpRequest (String& httpReply, const char *httpsServer, int httpsPort, const char *httpsAddress, const char *httpsMethod, unsigned long timeOut)")]]
     inline String httpRequest (const char *httpServer, int httpPort = 80, const char *httpAddress = "/", const char *httpMethod = "GET", unsigned long timeOut = HTTP_REPLY_TIME_OUT) {
-
-        if (!WiFi.isConnected () || WiFi.localIP () == IPAddress (0, 0, 0, 0))
-            return "not connected to WiFi";
-
-        tcpConnection_t httpClient (httpServer, httpPort);
-        if (*httpClient.errText ())
-            return httpClient.errText ();
-
-        httpClient.setIdleTimeout (HTTP_REPLY_TIME_OUT);
-
-        // 1. send HTTP request
-        Cstring<300> httpRequest;
-        httpRequest += httpMethod;
-        httpRequest += " ";
-        httpRequest += httpAddress;
-        httpRequest += " HTTP/1.0\r\nHost: ";
-        httpRequest += httpServer;
-        httpRequest += "\r\n\r\n"; // 1.0 HTTP does not know keep-alive directive - we want the server to close the connection immediatelly after sending the reply
-        if (httpRequest.errorFlags ())
-            return "HTTP request too long";
-
-        switch (httpClient.sendString (httpRequest)) {
-            case -1:  return strerror (errno);
-            case 0:   return "connection closed by peer";
-            default:  break; // OK
-        }
-
-        // 2. read HTTP reply
-        String httpReply ("");
-        char buffer [HTTP_REPLY_BUFFER_SIZE];
-        int receivedThisTime;
-
-        while (true) { // read blocks of incoming data
-            receivedThisTime = httpClient.recv (buffer, HTTP_REPLY_BUFFER_SIZE - 1);
-            switch (receivedThisTime) {
-                case -1:    // error
-                            if (errno == 128) // ENOTSOCK (or the client closed the connection)
-                                if (httpReply != "")
-                                    return httpReply; // we could have got HTTP reply but the COntent-Length is not reported correctly
-                            return strerror (errno);
-                case 0:     // connection closed by peer
-                            if (httpReply != "")
-                                return httpReply; // we could have got HTTP reply but the COntent-Length is not reported correctly
-                            return "connection closed by peer";
-                default:      // block arrived
-                                buffer [receivedThisTime] = 0;
-                                if (!httpReply.concat (buffer))
-                                    return "Out of memory";
-
-                                // check if HTTP reply is complete
-                                char *p = strstr (httpReply.c_str (), "\nContent-Length:");
-                                if (p) {
-                                    p += 16;
-                                    unsigned int contentLength;
-                                    if (sscanf (p, "%u", &contentLength) == 1) {
-                                        p = strstr (p, "\r\n\r\n"); // the content comes afterwards
-                                        if (p && contentLength == strlen (p + 4))
-                                            return httpReply;
-                                    }
-                                }
-                                // else continue reading
-                                break;
-            } // switch
-        } // while       
-        return ""; // never executes
+        String httpReply;
+        const char *retVal = httpClient_t ().httpRequest (httpReply, httpServer, httpPort, httpAddress, httpMethod);
+        if (*retVal) // error
+                return (retVal);
+        return httpReply;
     }
 
 #endif

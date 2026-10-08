@@ -5,7 +5,7 @@
     This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
   
 
-    May 22, 2026, Bojan Jurca
+    Oct 10, 2026, Bojan Jurca
 
 
     Multitasking/thread-safe classes and functions: 
@@ -150,7 +150,7 @@ void ftpServer_t::ftpControlConnection_t::__runConnectionTask__ () {
         // check how much o stack did we use
         UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark (NULL);
         if (__lastHighWaterMark__ > highWaterMark) {
-            cout << ( dmesgQueue << "[ftpCtrlConn] " << "new FTP connection stack high water mark reached: " << highWaterMark << " not used bytes" );
+            cout << ( dmesgQueue << "[ftpCtrlConn] " << "new FTP connection stack high water mark reached: " << highWaterMark << " bytes not used" );
             __lastHighWaterMark__ = highWaterMark;
         }
     }
@@ -235,7 +235,7 @@ Cstring<300> ftpServer_t::ftpControlConnection_t::__PASS__ (char *password) {
     else
         __homeDirectory__ = "/";
 
-    if (!__fileSystem__.isDirectory (__homeDirectory__)) // isDIrectory is always true on SPIFFS                    
+    if (!__fileSystem__.isDirectory (__homeDirectory__)) // isDirectory is always true when SPIFFS is beeing used                    
         return "530 invalid user's home directory\r\n";
 
     if (__homeDirectory__ != "") {
@@ -684,7 +684,7 @@ tcpConnection_t *ftpServer_t::__createConnectionInstance__ (int connectionSocket
     if (!connection) {
         cout << ( dmesgQueue << "[ftpServer] " << "can't create connection instance, out of memory" );
         char s [128];
-        sprintf (s, ftpServiceUnavailableReply, esp_get_free_heap_size (), heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT));
+        sprintf (s, ftpServiceUnavailableReply, esp_get_free_heap_size (), heap_caps_get_largest_free_block (MALLOC_CAP_INTERNAL));
         xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
         send (connectionSocket, s, strlen (s), 0);
         close (connectionSocket);
@@ -712,7 +712,7 @@ tcpConnection_t *ftpServer_t::__createConnectionInstance__ (int connectionSocket
                                                         }, "ftpCtrlConn", FTP_CONTROL_CONNECTION_STACK_SIZE, connection, tskNORMAL_PRIORITY, NULL)) {
         cout << ( dmesgQueue << "[ftpServer] " << "can't create connection task, out of memory" );
         char s [128];
-        sprintf (s, ftpServiceUnavailableReply, esp_get_free_heap_size (), heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT));
+        sprintf (s, ftpServiceUnavailableReply, esp_get_free_heap_size (), heap_caps_get_largest_free_block (MALLOC_CAP_INTERNAL));
         connection->sendString (s);
         delete connection;
         return NULL;

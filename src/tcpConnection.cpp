@@ -5,7 +5,7 @@
     This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
   
 
-    May 22, 2026, Bojan Jurca
+    Sep 9, 2026, Bojan Jurca
 
 
     Multitasking/thread-safe classes and functions: 
@@ -78,10 +78,12 @@ tcpConnection_t::tcpConnection_t (int connectionSocket, const char *clientIP, co
     networkTraffic () [__connectionSocket__] = {0, 0};
 
     // make connection socket non-blocking
-    xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);    
+    xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
+        __errNo__ = errno = 0;
         if (fcntl (__connectionSocket__, F_SETFL, O_NONBLOCK) < 0) {
-            cout << ( dmesgQueue << "[tcpConn] " << "error: " << errno << " " << strerror (errno) );
+            __errNo__ = errno;
             xSemaphoreGive (getLwIpMutex ());
+            cout << ( dmesgQueue << "[tcpConn] " << "error: " << __errNo__ << " " << strerror (__errNo__) );
             close ();
         }
     xSemaphoreGive (getLwIpMutex ());
@@ -135,11 +137,13 @@ tcpConnection_t::tcpConnection_t (const char *serverName, int serverPort) : tcpC
 
     // create socket
     // xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
+      __errNo__ = errno = 0;
       __connectionSocket__ = socket (isIPv6 ? AF_INET6 : AF_INET, SOCK_STREAM, 0);
+      __errNo__ = errno;
       if (__connectionSocket__ < 0) {
-        __errText__ = strerror (errno);
-        cout << ( dmesgQueue << "[tcpConn] " << __errText__ );
         xSemaphoreGive (getLwIpMutex ());
+        __errText__ = strerror (__errNo__);        
+        cout << ( dmesgQueue << "[tcpConn] " << __errText__ );
         return;
       }
 
@@ -160,12 +164,14 @@ tcpConnection_t::tcpConnection_t (const char *serverName, int serverPort) : tcpC
       }
 
       // make connection socket non-blocking
+      __errNo__ = errno = 0;
       if (fcntl (__connectionSocket__, F_SETFL, O_NONBLOCK) < 0) {
-        __errText__ = strerror (errno);
-        cout << ( dmesgQueue << "[tcpConn] " << __errText__ );
+        __errNo__ = errno;
         ::close (__connectionSocket__);
         __connectionSocket__ = -1;
         xSemaphoreGive (getLwIpMutex ());
+        __errText__ = strerror (__errNo__);
+        cout << ( dmesgQueue << "[tcpConn] " << __errText__ );
         return;
       }
 
@@ -181,9 +187,11 @@ tcpConnection_t::tcpConnection_t (const char *serverName, int serverPort) : tcpC
           cout << ( dmesgQueue << "[tcpConn] " << __errText__ << " " << __serverIP__ );
         } else {
           server_addr.sin6_port = htons (serverPort);
+          __errNo__ = errno = 0;
           if (connect (__connectionSocket__, (struct sockaddr *) &server_addr, sizeof (server_addr)) < 0) {
             if (errno != EINPROGRESS) {
-              __errText__ = strerror (errno);
+              __errNo__ = errno;
+              __errText__ = strerror (__errNo__);
               cout << ( dmesgQueue << "[tcpConn] " << __errText__ );
               ::close (__connectionSocket__);
               __connectionSocket__ = -1;
@@ -202,9 +210,11 @@ tcpConnection_t::tcpConnection_t (const char *serverName, int serverPort) : tcpC
           cout << ( dmesgQueue << "[tcpConn] " << __errText__ << " " << __serverIP__ );
         } else {
           server_addr.sin_port = htons (serverPort);
+          __errNo__ = errno = 0;
           if (connect (__connectionSocket__, (struct sockaddr *) &server_addr, sizeof (server_addr)) < 0) {
             if (errno != EINPROGRESS) {
-              __errText__ = strerror (errno);
+              __errNo__ = errno;
+              __errText__ = strerror (__errNo__);
               cout << ( dmesgQueue << "[tcpConn] " << __errText__ );
               ::close (__connectionSocket__);
               __connectionSocket__ = -1;
@@ -240,13 +250,15 @@ tcpConnection_t::tcpConnection_t (const char *serverName, int serverPort) : tcpC
       FD_SET (__connectionSocket__, &wfds);
       struct timeval tv = { 0, 200000 };
       xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
+        __errNo__ = errno = 0;
         switch (select (__connectionSocket__ + 1, NULL, &wfds, NULL, &tv)) {
           case -1:  // break;
-                    __errText__ = strerror (errno);
-                    cout << ( dmesgQueue << "[tcpConn] " << __errText__ );
+                    __errNo__ = errno;
                     ::close (__connectionSocket__);
                     __connectionSocket__ = -1;
                     xSemaphoreGive (getLwIpMutex ());
+                    __errText__ = strerror (__errNo__);
+                    cout << ( dmesgQueue << "[tcpConn] " << __errText__ );
                     return;          
           case 0:   // socket time-out (which is not idle time-out)
                     break;
@@ -279,10 +291,22 @@ tcpConnection_t::tcpConnection_t (const char *serverName, int serverPort) : tcpC
     
   // set socket time-out (without error checking, this is just a back-up option)
   xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
-    // set socket time-out (without error checking, this is just a back-up option)
+
+    // set socket time-out (without error checking) - this is just a back-up option)
     struct timeval tv = { SOCKET_TIMEOUT, 0 };
     setsockopt (__connectionSocket__, SOL_SOCKET, SO_RCVTIMEO, (const char *) &tv, sizeof (tv));
     setsockopt (__connectionSocket__, SOL_SOCKET, SO_SNDTIMEO, (const char *) &tv, sizeof (tv));
+
+    // set keep-alive (without error checking) - this will help detect if inactive connection drops
+    int keepalive = 1;          // enable keep-alive
+    int keepidle = KEEP_IDLE;   // wait 15 min before the first test packet 
+    int keepintvl = KEEP_INTVL; // repeat interval: 15 min
+    int keepcnt = KEEP_CNT;     // report the error after 3 failed attepts (1h altogether before error is detected)
+    setsockopt (__connectionSocket__, SOL_SOCKET, SO_KEEPALIVE, &keepalive, sizeof (keepalive));
+    setsockopt (__connectionSocket__, IPPROTO_TCP, TCP_KEEPIDLE, &keepidle, sizeof (keepidle));
+    setsockopt (__connectionSocket__, IPPROTO_TCP, TCP_KEEPINTVL, &keepintvl, sizeof (keepintvl));
+    setsockopt (__connectionSocket__, IPPROTO_TCP, TCP_KEEPCNT, &keepcnt, sizeof (keepcnt));
+
   xSemaphoreGive (getLwIpMutex ());
 
   networkTraffic () [__connectionSocket__] = {0, 0};
@@ -298,11 +322,13 @@ int tcpConnection_t::recv (void *buf, size_t len) {
 
     while (received < 0) { // read blocks of incoming data
         xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
+            __errNo__ = errno = 0;
             received = ::recv (__connectionSocket__, (char *) buf, len, 0);
+            __errNo__ = errno;
         xSemaphoreGive (getLwIpMutex ());
 
         if (received <= 0)
-            switch (errno) {
+            switch (__errNo__) {
                 case 107:   // ENOTCONN (all the sockets are non-blocking)
                             [[fallthrough]];
                 // case 119:   // EALREADY (all the sockets are non-blocking)
@@ -326,8 +352,8 @@ int tcpConnection_t::recv (void *buf, size_t len) {
                             __errText__ = "client closed the connection";
                             return -1;
                 default:
-                            __errText__ = strerror (errno);
-                            cout << ( dmesgQueue << "[tcpConn] " << "error: " << errno << " " << __errText__ );
+                            __errText__ = strerror (__errNo__);
+                            cout << ( dmesgQueue << "[tcpConn] " << "error: " << __errNo__ << " " << __errText__ );
                             return -1;
             }
       __errText__ = "";
@@ -347,11 +373,13 @@ int tcpConnection_t::send (void *buf, size_t len) {
     int sent = -1;
     while (sent < 0) {
         xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
+            __errNo__ = errno = 0;
             sent = ::send (__connectionSocket__, buf, len, 0);    
+            __errNo__ = errno;
         xSemaphoreGive (getLwIpMutex ());
 
         if (sent <= 0)
-            switch (errno) {
+            switch (__errNo__) {
                 case 107:   // ENOTCONN (all the sockets are non-blocking)
                             [[fallthrough]];
                 // case 119:   // EALREADY (all the sockets are non-blocking)
@@ -375,8 +403,8 @@ int tcpConnection_t::send (void *buf, size_t len) {
                             __errText__ = "client closed the connection";
                             return -1;
                 default:
-                            __errText__ = strerror (errno);
-                            cout << ( dmesgQueue << "[tcpConn] " << "error: " << errno << " " << __errText__ );
+                            __errText__ = strerror (__errNo__);
+                            cout << ( dmesgQueue << "[tcpConn] " << "error: " << __errNo__ << " " << __errText__ );
                             return -1;
             }
         __errText__ = "";
@@ -439,10 +467,12 @@ int tcpConnection_t::recvString (char *buf, size_t len, const char *endingString
 //          -1 if error occured (including the case if the peer closed the connection)
 int tcpConnection_t::peek (void *buf, size_t len) { 
     xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
+        __errNo__ = errno = 0;
         int received = ::recv (__connectionSocket__, (char *) buf, len, MSG_PEEK);
+        __errNo__ = errno;
     xSemaphoreGive (getLwIpMutex ());
     if (received <= 0)
-        switch (errno) {
+        switch (__errNo__) {
             case 107:   // ENOTCONN (all the sockets are non-blocking)
                         [[fallthrough]];
             // case 119:   // EALREADY (all the sockets are non-blocking)
@@ -464,8 +494,8 @@ int tcpConnection_t::peek (void *buf, size_t len) {
                         __errText__ = "client closed the connection";
                         return -1;
             default:
-                        __errText__ = strerror (errno);
-                        cout << ( dmesgQueue << "[tcpConn] " << "error: " << errno << " " << __errText__ );
+                        __errText__ = strerror (__errNo__);
+                        cout << ( dmesgQueue << "[tcpConn] " << "error: " << __errNo__ << " " << __errText__ );
                         return -1;
         }
     __errText__ = "";

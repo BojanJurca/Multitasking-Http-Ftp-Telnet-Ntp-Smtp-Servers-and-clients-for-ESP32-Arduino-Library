@@ -190,7 +190,6 @@ tcpServer_t::~tcpServer_t () {
     }
   xSemaphoreGive (getLwIpMutex ());
 
-
   // wait until listener task finishes before unloading so that variables are still in the memory while it is running
   if (__runListenerInItsOwnTask__) {
     while (__state__ != NOT_RUNNING)

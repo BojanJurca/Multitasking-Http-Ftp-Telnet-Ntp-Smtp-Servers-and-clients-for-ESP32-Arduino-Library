@@ -5,7 +5,7 @@
     This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
   
 
-    Aug 12, 2026, Bojan Jurca
+    Oct 10, 2026, Bojan Jurca
 
 
     Multitasking/thread-safe classes and functions: 
@@ -167,7 +167,7 @@ Edit/view: https://cascii.app/e83d5
                     Cstring<300> getHttpRequestCookie (const char *cookieName);
                     void setHttpReplyStatus (const char *status);
                     void setHttpReplyHeaderField (Cstring<300> fieldName, Cstring<300> fieldValue);
-                    void setHttpReplyCookie (Cstring<300> cookieName, Cstring<300> cookieValue, time_t expires = 0, Cstring<300> path = "/");
+                    void setHttpReplyCookie (Cstring<300> cookieName, Cstring<300> cookieValue, time_t expires = 0, Cstring<300> path = "/", bool secure = false, bool httpOnly = false, const char *sameSite = "Lax");
 
                     // implement entire tcpConnection_t interface (except recv... and send... which are specific for webSocket_t) through __transport__ pointer
                     operator bool () { return __transport__; }
@@ -189,7 +189,7 @@ Edit/view: https://cascii.app/e83d5
                     void stillActive () { __transport__->stillActive (); }
                     bool idleTimeout () { return __transport__->idleTimeout (); }
 
-                    virtual const char *cipherName () { return "none"; }
+                    virtual const char *cipherName () { return "None"; }
             };
 
             /*
@@ -249,15 +249,15 @@ Edit/view: https://cascii.app/e83d5
                                     if (!tsfs.isFile ("/var/www/html/index.html")) {
                                         threadSafeFS::File f = tsfs.open ("/var/www/html/index.html", "w");
                                         if (f) {
-                                            f.print ("<!DOCTYPE html>\n"
-                                                     "<html lang='en'>\n"
-                                                     "   <head>\n"
-                                                     "      <meta charset='UTF-8'>\n"
-                                                     "      <title>Hello world!</title>\n"
-                                                     "   </head>\n"
-                                                     "   <body>\n"
-                                                     "      <h1>Hello world!</h1>\n"
-                                                     "   </body>\n"
+                                            f.print ("<!DOCTYPE html>\r\n"
+                                                     "<html lang='en'>\r\n"
+                                                     "   <head>\r\n"
+                                                     "      <meta charset='UTF-8'>\r\n"
+                                                     "      <title>Hello world!</title>\r\n"
+                                                     "   </head>\r\n"
+                                                     "   <body>\r\n"
+                                                     "      <h1>Hello world!</h1>\r\n"
+                                                     "   </body>\r\n"
                                                      "</html>");
                                             f.close ();
                                         }
@@ -317,7 +317,7 @@ Edit/view: https://cascii.app/e83d5
 
         // accept any connection, the client will get notified in __createConnectionInstance__
         inline tcpConnection_t *accept () __attribute__((always_inline)) {             
-            if (heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT) < HTTP_CONNECTION_STACK_SIZE) { 
+            if (heap_caps_get_largest_free_block (MALLOC_CAP_INTERNAL) < HTTP_CONNECTION_STACK_SIZE) { 
                 // There is not a memory block large enough evailable to start new task that would handle the new connection.
                 // If we ::accept () the connection now we would only have to report503 "HTTP/1.0 503 Service unavailable
                 // to the client later. But if we don't call ::accept () now the incoming connection will wait for a while,

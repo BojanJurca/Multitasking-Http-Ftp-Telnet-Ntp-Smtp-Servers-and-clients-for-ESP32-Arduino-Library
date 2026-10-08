@@ -7,7 +7,7 @@
 
       - Use dmesg telnet command to display messages in the dmesg message queue.
 
-    March 12, 2026, Bojan Jurca
+    Oct 10, 2026, Bojan Jurca
     
 */
 
@@ -183,8 +183,8 @@
                 (*this) << "[" ESP32TYPE "] wakeup reason: " << __wakeupReason__ ();
 
                 (*this) << "[" ESP32TYPE "] free heap at startup: " << esp_get_free_heap_size () << " bytes";
-                if (heap_caps_get_free_size (MALLOC_CAP_SPIRAM) == 0 && psramInit ())
-                    (*this) << "[" ESP32TYPE "] free PSRAM at startup: " << heap_caps_get_free_size (MALLOC_CAP_SPIRAM) << " bytes";
+                if (heap_caps_get_free_size (MALLOC_CAP_SPIRAM) == 0 && psramFound ())
+                    (*this) << "[" ESP32TYPE "] PSRAM installed";
                 else
                     (*this) << "[" ESP32TYPE "] PSRAM not installed";
 

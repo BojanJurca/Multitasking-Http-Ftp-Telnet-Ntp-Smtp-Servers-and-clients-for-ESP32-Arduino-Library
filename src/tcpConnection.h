@@ -5,7 +5,7 @@
     This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
   
 
-    May 22, 2026, Bojan Jurca
+    Sep 9, 2026, Bojan Jurca
 
 
     Multitasking/thread-safe classes and functions: 
@@ -70,6 +70,7 @@ Edit/view: https://cascii.app/e83d5
 
     // TUNING PARAMETERS
 
+    // for setsockopt (... SO_RCVTIMEO and SO_SNDTIMEO
     #ifndef SOCKET_TIMEOUT
         #define SOCKET_TIMEOUT (1)
     #endif
@@ -77,6 +78,20 @@ Edit/view: https://cascii.app/e83d5
     #ifndef CONNECT_TIMEOUT
         #define CONNECT_TIMEOUT (10)
     #endif
+
+    // for setsockopt (... TCP_KEEPIDLE
+    #ifndef KEEP_IDLE
+        #define KEEP_IDLE (900) // 15 min - wait before first test packet
+    #endif
+    // for setsockopt (... TCP_KEEPINTVL
+    #ifndef KEEP_INTVL
+        #define KEEP_INTVL (900) // 15 min - wait before first test packet
+    #endif
+    // for setsockopt (... TCP_KEEPCNT
+    #ifndef KEEP_CNT
+        #define KEEP_CNT (3) // report error after 3 failed attepts
+    #endif
+    // 1h altogether before error is detected
 
 
     // singleton network traffic declaration
@@ -104,8 +119,11 @@ Edit/view: https://cascii.app/e83d5
 
         private:
             const char *__errText__ = "";
+            int __errNo__ = 0;
 
         public:
+            inline int errNo () { return __errNo__; }
+            
             tcpConnection_t ();
             // server connection constructor
             tcpConnection_t (int connectionSocket, const char *clientIP, const char *serverIP);

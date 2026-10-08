@@ -5,7 +5,7 @@
     This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
   
 
-    Aug 12, 2026, Bojan Jurca
+    Oct 10, 2026, Bojan Jurca
 
 
     Multitasking/thread-safe classes and functions: 
@@ -84,6 +84,8 @@ Edit/view: https://cascii.app/e83d5
                 #define MACHINETYPE             "ESP32-S2"    
         #elif CONFIG_IDF_TARGET_ESP32S3
                 #define MACHINETYPE             "ESP32-S3"
+        #elif CONFIG_IDF_TARGET_ESP32C2
+                #define MACHINETYPE             "ESP32-C2"
         #elif CONFIG_IDF_TARGET_ESP32C3
                 #define MACHINETYPE             "ESP32-C3"        
         #elif CONFIG_IDF_TARGET_ESP32C6
@@ -114,6 +116,25 @@ Edit/view: https://cascii.app/e83d5
         #endif
         #ifndef TELNET_DMESG_COMMAND
                 #define TELNET_DMESG_COMMAND 1      // 0=exclude, 1=include, dmesg included by default
+        #endif
+        #ifndef TELNET_SENSORS_COMMAND
+                #if CONFIG_IDF_TARGET_ESP32
+                        #define TELNET_SENSORS_COMMAND 1  // 0=exclude, 1=include, dmesg included by default
+                #elif CONFIG_IDF_TARGET_ESP32S2
+                        #define TELNET_SENSORS_COMMAND 1  // 0=exclude, 1=include, dmesg included by default
+                #elif CONFIG_IDF_TARGET_ESP32S3
+                        #define TELNET_SENSORS_COMMAND 1  // 0=exclude, 1=include, dmesg included by default
+                #elif CONFIG_IDF_TARGET_ESP32C2
+                        #define TELNET_SENSORS_COMMAND 0  // temperature sensor not available, board not supported by Arduino
+                #elif CONFIG_IDF_TARGET_ESP32C3
+                        #define TELNET_SENSORS_COMMAND 1  // 0=exclude, 1=include, dmesg included by default
+                #elif CONFIG_IDF_TARGET_ESP32C6
+                        #define TELNET_SENSORS_COMMAND 1  // 0=exclude, 1=include, dmesg included by default
+                #elif CONFIG_IDF_TARGET_ESP32H2
+                        #define TELNET_SENSORS_COMMAND 0  // board not supported by Arduino
+                #else
+                        #define TELNET_SENSORS_COMMAND 0  // not sure
+                #endif
         #endif
         #ifndef TELNET_UPTIME_COMMAND
                 #define TELNET_UPTIME_COMMAND 1     // 0=exclude, 1=include, date included by default
@@ -493,6 +514,9 @@ Edit/view: https://cascii.app/e83d5
                                 #if TELNET_DMESG_COMMAND == 1
                                         const char *__dmesg__ (bool follow, bool trueTime);
                                 #endif
+                                #if TELNET_SENSORS_COMMAND == 1
+                                        Cstring<300> __sensors__ ();
+                                #endif
                                 #if TELNET_QUIT_COMMAND == 1
                                         const char *__quit__ ();
                                 #endif
@@ -526,7 +550,7 @@ Edit/view: https://cascii.app/e83d5
                                         Cstring<300> __kill__ (int sockfd);
                                 #endif
                                 #if TELNET_CURL_COMMAND == 1 or TELNET_CURL_COMMAND == 2
-                                        const char *__curl__ (const char *method, char *url);
+                                        const char *__curl__ (const char *method, char *url, bool verifyServerCertificate);
                                 #endif
                                 #if TELNET_LS_COMMAND == 1
                                         const char *__ls__ (char *directoryName);
@@ -961,7 +985,7 @@ Edit/view: https://cascii.app/e83d5
                         // check how much stack did we use
                         UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark (NULL);
                         if (__lastHighWaterMark__ > highWaterMark) {
-                                cout << (dmesgQueue << "[telnetConn] " "new Telnet connection stack high water mark reached: " << highWaterMark << " not used bytes" );
+                                cout << (dmesgQueue << "[telnetConn] " "new Telnet connection stack high water mark reached: " << highWaterMark << " bytes not used" );
                                 __lastHighWaterMark__ = highWaterMark;
                         }
 
@@ -1050,6 +1074,10 @@ Edit/view: https://cascii.app/e83d5
                                                                 }
                 #endif
 
+                #if TELNET_SENSORS_COMMAND == 1
+                        else if (telnetArgv0Is ("sensors"))      { return argc == 1 ? __sensors__ () : "Wrong syntax, use sensors"; }
+                #endif
+
                 #if TELNET_QUIT_COMMAND == 1                                                  
                         else if (telnetArgv0Is ("quit"))        { return argc == 1 ? __quit__ () : "Wrong syntax, use quit"; }
                 #endif
@@ -1130,16 +1158,34 @@ Edit/view: https://cascii.app/e83d5
                                                 
                 #if TELNET_CURL_COMMAND == 1
                         else if (telnetArgv0Is ("curl"))        { 
-                                                                        if (argc == 2)  return __curl__ ("GET", argv [1]);
-                                                                        if (argc == 3)  return __curl__ (argv [1], argv [2]);
-                                                                                        return "Wrong syntax, use curl [method] http://url";
+                                                                        if (argc == 2) {
+                                                                                return __curl__ ("GET", argv [1], true);
+                                                                        } else if (argc == 3) {
+                                                                                if (strcmp (argv [1], "-k") == 0) {
+                                                                                        return __curl__ ("GET", argv [2], false);
+                                                                                } else {
+                                                                                        return __curl__ (argv [1], argv [2], true);
+                                                                                }
+                                                                        }  else if (argc == 3 && strcmp (argv [1], "-k") == 0) {
+                                                                                return __curl__ (argv [2], argv [3], false);
+                                                                        }
+                                                                        return "Wrong syntax, use curl [-k] [method] http://url";
                                                                 } 
                 #endif
                 #if TELNET_CURL_COMMAND == 2
                         else if (telnetArgv0Is ("curl"))        { 
-                                                                        if (argc == 2)  return __curl__ ("GET", argv [1]);
-                                                                        if (argc == 3)  return __curl__ (argv [1], argv [2]);
-                                                                                        return "Wrong syntax, use curl [method] http(s)://url";
+                                                                        if (argc == 2) {
+                                                                                return __curl__ ("GET", argv [1], true);
+                                                                        } else if (argc == 3) {
+                                                                                if (strcmp (argv [1], "-k") == 0) {
+                                                                                        return __curl__ ("GET", argv [2], false);
+                                                                                } else {
+                                                                                        return __curl__ (argv [1], argv [2], true);
+                                                                                }
+                                                                        }  else if (argc == 3 && strcmp (argv [1], "-k") == 0) {
+                                                                                return __curl__ (argv [2], argv [3], false);
+                                                                        }
+                                                                        return "Wrong syntax, use curl [-k] [method] http(s)://url";
                                                                 } 
                 #endif
 
@@ -1339,7 +1385,7 @@ Edit/view: https://cascii.app/e83d5
                 if (!connection) {
                         cout << ( dmesgQueue << "[telnetServer] " "can't create connection instance, out of memory" );
                         char s [128];
-                        sprintf (s, telnetServiceUnavailableReply, esp_get_free_heap_size (), heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT));
+                        sprintf (s, telnetServiceUnavailableReply, esp_get_free_heap_size (), heap_caps_get_largest_free_block (MALLOC_CAP_INTERNAL));
                         xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
                         send (connectionSocket, s, strlen (s), 0);
                         close (connectionSocket); // normally tcpConnection would do this but if it is not created we have to do it here since the connection was not created
@@ -1369,7 +1415,7 @@ Edit/view: https://cascii.app/e83d5
                         cout << ( dmesgQueue << "[telnetServer] " "can't create connection task, out of memory" );
 
                         char s [128];
-                        sprintf (s, telnetServiceUnavailableReply, esp_get_free_heap_size (), heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT));
+                        sprintf (s, telnetServiceUnavailableReply, esp_get_free_heap_size (), heap_caps_get_largest_free_block (MALLOC_CAP_INTERNAL));
                         connection->sendString (s);
                         delete (connection); // normally tcpConnection would do this but if it is not running we have to do it here
                         return NULL;
@@ -1406,6 +1452,9 @@ Edit/view: https://cascii.app/e83d5
                                                 #endif
                                                 #if TELNET_DMESG_COMMAND == 1
                                                         "\r\n      dmesg [-follow] [-time]"
+                                                #endif
+                                                #if TELNET_SENSORS_COMMAND == 1
+                                                        "\r\n      sensors"
                                                 #endif
                                                 #if TELNET_QUIT_COMMAND == 1
                                                         "\r\n      quit"
@@ -1444,10 +1493,10 @@ Edit/view: https://cascii.app/e83d5
                                                         "\r\n      kill <socket>   (where socket is a valid socket)"
                                                 #endif
                                                 #if TELNET_CURL_COMMAND == 1
-                                                        "\r\n      curl [method] http://url"
+                                                        "\r\n      curl [-k] [method] http://url"
                                                 #endif
                                                 #if TELNET_CURL_COMMAND == 2
-                                                        "\r\n      curl [method] http(s)://url"
+                                                        "\r\n      curl [-k] [method] http(s)://url"
                                                 #endif
                                                 #if TELNET_SENDMAIL_COMMAND == 1
                                                         #ifdef __THREAD_SAFE_FS__
@@ -1518,13 +1567,25 @@ Edit/view: https://cascii.app/e83d5
         #if TELNET_UNAME_COMMAND == 1 
                 #include "version_of_servers.h"
                 Cstring<300> telnetServer_t::telnetConnection_t::__uname__ () { 
-                        return  Cstring<300> (HOSTNAME "\r\n") + 
-                                Cstring<300> (MACHINETYPE " (") + Cstring<300> ((int) ESP.getCpuFreqMHz ()) + " MHz)\r\n"
-                                "SDK " + ESP.getSdkVersion () + "\r\n"
+                        Cstring<300> retVal;
+                        snprintf (
+                                retVal.c_str (), 300,
+                                HOSTNAME "\r\n"
+                                MACHINETYPE " (%i MHz, %i %s)\r\n"
+                                "SDK %s\r\n"
                                 "ESP Arduino core " ESP_ARDUINO_VERSION_STR "\r\n"
                                 VERSION_OF_SERVERS "\r\n"
-                                "C++ " + Cstring<64> ((unsigned int) __cplusplus) + "\r\n"
-                                "compiled " __DATE__ " " __TIME__;
+                                "C++ %lu\r\n"
+                                "compiled " __DATE__ " " __TIME__ "\r\n"
+                                "Sketch size %lu\r\n"
+                                "Free sketch space %lu",
+                                (int) ESP.getCpuFreqMHz (), CONFIG_FREERTOS_NUMBER_OF_CORES, CONFIG_FREERTOS_NUMBER_OF_CORES == 1 ? "core" : "cores",
+                                ESP.getSdkVersion (),
+                                (unsigned long) __cplusplus,
+                                (unsigned long) ESP.getSketchSize (),
+                                (unsigned long) ESP.getFreeSketchSpace ()
+                        );
+                        return retVal;
                 }
         #endif
 
@@ -1550,7 +1611,7 @@ Edit/view: https://cascii.app/e83d5
                                                 } 
                                         }
                                 }
-                                sprintf (s, "\r\n%10lu   %10lu   %10lu  bytes", (unsigned long) ESP.getFreeHeap (), (unsigned long) heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT), (unsigned long) ESP.getFreePsram ());
+                                sprintf (s, "\r\n%10lu   %10lu   %10lu  bytes", (unsigned long) ESP.getFreeHeap (), (unsigned long) heap_caps_get_largest_free_block (MALLOC_CAP_INTERNAL), (unsigned long) heap_caps_get_free_size (MALLOC_CAP_SPIRAM));
                                 if (sendString (s) <= 0) 
                                         return "";
                                 firstTime = false;
@@ -1603,7 +1664,6 @@ Edit/view: https://cascii.app/e83d5
                                         #ifndef __LOCALE_HPP__
                                                 strftime (c, sizeof (c), "[%Y/%m/%d %T] ", &slt);
                                         #else
-                                                Serial.println ("LOCALE DAte");
                                                 Cstring<64> f = "["; f += lc_time_locale->getTimeFormat (); f += "] ";
                                                 strftime (c, sizeof (c), f, &slt);
                                         #endif
@@ -1668,6 +1728,54 @@ Edit/view: https://cascii.app/e83d5
                         }
 
                         return "\r"; // different than "" to let the calling function know that the command has been processed
+                }
+        #endif
+
+        #if TELNET_SENSORS_COMMAND == 1
+                Cstring<300> telnetServer_t::telnetConnection_t::__sensors__ () {
+                        Cstring<300> retVal;
+                        float f = -9999;
+
+                        #if CONFIG_IDF_TARGET_ESP32
+                                f = temperatureRead ();
+                        #elif CONFIG_IDF_TARGET_ESP32S2
+                                f = temperatureRead ();
+                        #elif CONFIG_IDF_TARGET_ESP32S3
+                                f = temperatureRead ();
+                        #elif CONFIG_IDF_TARGET_ESP32C2
+                                // no temperature sensor available
+                        #elif CONFIG_IDF_TARGET_ESP32C3
+                                f = temperatureRead ();
+                        #elif CONFIG_IDF_TARGET_ESP32C6
+                                f = temperatureRead ();
+                        #elif CONFIG_IDF_TARGET_ESP32H2
+                                // board not supported by Arduino
+                        #else
+                                f = temperatureRead (); // not sure
+                        #endif
+
+                        if (f == -9999) {
+                                retVal = "temperature sensor not available";
+                        } else {
+                                retVal = "chip temperature: ";
+                                #ifdef __LOCALE_HPP__
+                                        if (getlocale ()->getTemperatureUnit () == 'F') {
+                                                // °F = (°C × 9/5) + 32
+                                                f = roundf (f * 9 / 5 + 32); 
+                                        } else {
+                                                f = roundf (f);
+                                        }
+                                        retVal += (int) f;
+                                        retVal += " ";
+                                        retVal += getlocale ()->getTemperatureUnit ();
+                                #else
+                                        f = roundf (f);
+                                        retVal += (int) f;
+                                        retVal += " C";
+                                #endif
+                        }
+
+                        return retVal;
                 }
         #endif
 
@@ -2110,7 +2218,7 @@ Edit/view: https://cascii.app/e83d5
         #endif
 
         #if TELNET_CURL_COMMAND == 1
-                const char *telnetServer_t::telnetConnection_t::__curl__ (const char *method, char *url) {
+                const char *telnetServer_t::telnetConnection_t::__curl__ (const char *method, char *url, bool verifyServerCertificate) { // verifyServerCertificate has no effect with http
                         char server [65];
                         char addr [128] = "/";
                         int port = 80;
@@ -2125,7 +2233,7 @@ Edit/view: https://cascii.app/e83d5
                                 server [strlen (server) - 1] = 0;
                                 strcpy (server, server + 1);
                         }
-                        String r = httpRequest (server, port, addr, method);
+                        String r = httpClient_t ().httpRequest (server, port, addr, method);
                         if (!r) 
                                return "Out of memory";
                         sendString (r.c_str ());
@@ -2133,7 +2241,7 @@ Edit/view: https://cascii.app/e83d5
                 }
         #endif
         #if TELNET_CURL_COMMAND == 2
-                const char *telnetServer_t::telnetConnection_t::__curl__ (const char *method, char *url) {
+                const char *telnetServer_t::telnetConnection_t::__curl__ (const char *method, char *url, bool verifyServerCertificate) {
                         char server [65];
                         char addr [128] = "/";
                         int port = 80;
@@ -2157,14 +2265,25 @@ Edit/view: https://cascii.app/e83d5
                                 server [strlen (server) - 1] = 0;
                                 strcpy (server, server + 1);
                         }
-                        String r;
-                        if (!isHttps)
-                                r = httpRequest (server, port, addr, method);
-                        else
-                                r = httpsRequest (server, port, addr, method);
-                        if (!r) 
-                               return "Out of memory";
-                        sendString (r.c_str ());
+                        String httpReply;
+                        const char *retVal;
+                        if (!isHttps) {
+                                retVal = httpClient_t ().httpRequest (httpReply, server, port, addr, method);
+                        } else {
+                                if (!verifyServerCertificate) {
+                                        retVal = httpsClient_t ().httpsRequest (httpReply, server, port, addr, method);
+                                } else {
+                                        #ifdef __THREAD_SAFE_FS__
+                                                retVal = httpsClient_t ().httpsRequest (tsfs, httpReply, server, port, addr, method, true);
+                                        #else
+                                                retVal = "can't check /etc/ssl/ca-trust/*.crt CA certificates since file system is not used";
+                                        #endif
+                                }
+                        }
+                        if (*retVal) // error
+                                return (retVal);
+
+                        sendString (httpReply.c_str ());
                         return "\r"; // different than "" to let the calling function know that the command has been processed
                 }
         #endif
@@ -2416,7 +2535,7 @@ Edit/view: https://cascii.app/e83d5
                                                         } 
                                                         // echo
                                                         if (sendBlock (&c, 1) <= 0) return "\r";
-                                                                Serial.printf ("   %i = %c\n", (int) c, c);                                                        
+                                                        // Serial.printf ("   %i = %c\n", (int) c, c);                                                        
                                                         break;
                                         }
                                 }

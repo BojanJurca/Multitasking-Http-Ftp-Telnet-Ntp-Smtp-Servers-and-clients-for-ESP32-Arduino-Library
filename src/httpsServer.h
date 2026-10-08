@@ -5,7 +5,7 @@
     This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
   
 
-    Aug 12, 2026, Bojan Jurca
+    Sep 9, 2026, Bojan Jurca
 
 
     Multitasking/thread-safe classes and functions: 
@@ -64,12 +64,12 @@ Edit/view: https://cascii.app/e83d5
 
     #include "httpServer.h"
     #include "tlsConnection.h" // uses WolfSSL library
-    #define CTX_CA_CERT_TYPE WOLFSSL_FILETYPE_ASN1 // for binary .der certificate format
+    
 
 
     // ----- TUNING PARAMETERS -----
 
-    #define HTTPS_CONNECTION_STACK_SIZE (17 * 1024)
+    #define HTTPS_CONNECTION_STACK_SIZE (18 * 1024)
     #define HTTPS_CONNECTION_TIME_OUT 3
 
 
@@ -113,11 +113,11 @@ Edit/view: https://cascii.app/e83d5
 
                 private:
 
-                    const char *__cipherName__ = "";
+                    const char *__cipherName__ = "None";
             };
 
 
-            httpsServer_t (unsigned char *__server_key_der__, unsigned int __server_cert_der_len__, unsigned char *__server_cert_der__, unsigned int __server_key_der_len__,
+            httpsServer_t (unsigned char *server_key_der, unsigned int server_cert_der_len, unsigned char *server_cert_der, unsigned int server_key_der_len,
                            String (*httpRequestHandlerCallback) (const char *httpRequest, httpConnection_t *hcn) = NULL,
                            void (*wsRequestHandlerCallback) (const char *httpRequest, webSocket_t *webSck) = NULL,
                            int serverPort = 443,
@@ -127,10 +127,11 @@ Edit/view: https://cascii.app/e83d5
                                                                                 serverPort,
                                                                                 firewallCallback,
                                                                                 runListenerInItsOwnTask) {
-                __setup_SSL__ (__server_key_der__, __server_cert_der_len__, __server_cert_der__, __server_key_der_len__);                                                                              
+                __setup_SSL__ (server_cert_der, server_cert_der_len, server_key_der, server_key_der_len);                                                                              
             }
 
             ~httpsServer_t ();
+
 
             #ifdef __THREAD_SAFE_FS__
                 // this part will not compile with .cpp
@@ -138,14 +139,12 @@ Edit/view: https://cascii.app/e83d5
         private:
 
                 // constructor with a file system
-                void __file_constructor__ (threadSafeFS::FS& fileSystem,
-                                           String (*httpRequestHandlerCallback) (const char *httpRequest, httpConnection_t *hcn),
-                                           void (*wsRequestHandlerCallback) (const char *httpRequest, webSocket_t *webSck),
-                                           int serverPort,
-                                           bool (*firewallCallback) (char *clientIP, char *serverIP),
-                                           bool runListenerInItsOwnTask) {
-
-                    __freeBuffersWhenDestructed__ = true;
+                void __constructor_with_file_system__ (threadSafeFS::FS& fileSystem,
+                                                       String (*httpRequestHandlerCallback) (const char *httpRequest, httpConnection_t *hcn),
+                                                       void (*wsRequestHandlerCallback) (const char *httpRequest, webSocket_t *webSck),
+                                                       int serverPort,
+                                                       bool (*firewallCallback) (char *clientIP, char *serverIP),
+                                                       bool runListenerInItsOwnTask) {
 
                     // create directory structure and test sever-key.der and server-cert.der files
                     if (!fileSystem.isDirectory ("/etc/ssl/certs")) {
@@ -230,19 +229,23 @@ Edit/view: https://cascii.app/e83d5
                     }
 
                     // read server-cert.der
+                    unsigned char *server_cert_der;
+                    unsigned int server_cert_der_len;
                     threadSafeFS::File f = fileSystem.open ("/etc/ssl/certs/server-cert.der", "r");
                     if (f) {
-                        __server_cert_der__ = (unsigned char *) malloc (f.size ());
-                        if (__server_cert_der__) {
-                            if (f.read (__server_cert_der__, f.size ()) == f.size ()) {
-                                __server_cert_der_len__ = f.size ();
+                        server_cert_der = (unsigned char *) malloc (f.size ());
+						// server_cert_der = (unsigned char *) heap_caps_malloc (f.size (), MALLOC_CAP_32BIT);
+                        if (server_cert_der) {
+                            if (f.read (server_cert_der, f.size ()) == f.size ()) {
+                                server_cert_der_len = f.size ();
                             } else {
-                                free (__server_cert_der__);
+                                free (server_cert_der);
                                 cout << ( dmesgQueue << "[httpsServer] " "can't read /etc/ssl/certs/server-cert.der" );
                                 return;
                             }
                         } else {
-                            cout << ( dmesgQueue << "[httpsServer] " "out of memory" );
+                            dmesgQueue << "[httpsServer] " "out of memory, couldn't allocate " << f.size () << " bytes";
+                            cout << "[httpsServer] " "out of memory, couldn't allocate " << f.size () << " bytes" " [" << __FILE__ << ", " << __LINE__ << ", " << __func__ << "]\r\n";
                             return;
                         }
                         f.close ();
@@ -252,35 +255,41 @@ Edit/view: https://cascii.app/e83d5
                     }
 
                     // read server-key.der
+                    unsigned char *server_key_der;
+                    unsigned int server_key_der_len;
                     f = fileSystem.open ("/etc/ssl/certs/server-key.der", "r");
                     if (f) {
-                        __server_key_der__ = (unsigned char *) malloc (f.size ());
-                        if (__server_key_der__) {
-                            if (f.read (__server_key_der__, f.size ()) == f.size ()) {
-                                __server_key_der_len__ = f.size ();
+                        server_key_der = (unsigned char *) malloc (f.size ());
+                        if (server_key_der) {
+                            if (f.read (server_key_der, f.size ()) == f.size ()) {
+                                server_key_der_len = f.size ();
                             } else {
-                                free (__server_cert_der__);
-                                free (__server_key_der__);
+                                free (server_cert_der);
+                                free (server_key_der);
                                 cout << ( dmesgQueue << "[httpsServer] " "can't read /etc/ssl/certs/server-key.der" );
                                 return;
                             }
                         } else {
-                            free (__server_cert_der__);
-                            cout << ( dmesgQueue << "[httpsServer] " "out of memory" );
+                            free (server_cert_der);
+                            dmesgQueue << "[httpsServer] " "out of memory, couldn't allocate " << f.size () << " bytes";
+                            cout << "[httpsServer] " "out of memory, couldn't allocate " << f.size () << " bytes" " [" << __FILE__ << ", " << __LINE__ << ", " << __func__ << "]\r\n";
                             return;
                         }
                         f.close ();
                     } else {
-                        free (__server_cert_der__);
+                        free (server_cert_der);
                         cout << ( dmesgQueue << "[httpsServer] " "can't read /etc/ssl/certs/server-key.der" );
                         return;
                     }
 
-                    if (!__setup_SSL__ (__server_key_der__, __server_cert_der_len__, __server_cert_der__, __server_key_der_len__)) {
-                        free (__server_key_der__);
-                        free (__server_cert_der__);
-                        __server_key_der__ = __server_cert_der__ = NULL;
+                    if (!__setup_SSL__ (server_cert_der, server_cert_der_len, server_key_der, server_key_der_len)) {
+                        cout << ( dmesgQueue << "[httpsServer] " "can't setup SSL" );
                     }
+
+                    free (server_key_der);
+                    free (server_cert_der);
+
+                    return;
                 }
 
         public:
@@ -298,7 +307,7 @@ Edit/view: https://cascii.app/e83d5
                                                                                     firewallCallback,
                                                                                     runListenerInItsOwnTask) {
 
-                    __file_constructor__ (fileSystem, httpRequestHandlerCallback, wsRequestHandlerCallback, serverPort, firewallCallback, runListenerInItsOwnTask);
+                    __constructor_with_file_system__ (fileSystem, httpRequestHandlerCallback, wsRequestHandlerCallback, serverPort, firewallCallback, runListenerInItsOwnTask);
                 }
 
                 #if TSFS_FS_COUNT == 1 // there is only one file system wrapped ...
@@ -313,20 +322,20 @@ Edit/view: https://cascii.app/e83d5
                                                                                         firewallCallback,
                                                                                         runListenerInItsOwnTask) {
 
-                        __file_constructor__ (tsfs, httpRequestHandlerCallback, wsRequestHandlerCallback, serverPort, firewallCallback, runListenerInItsOwnTask);
+                        __constructor_with_file_system__ (tsfs, httpRequestHandlerCallback, wsRequestHandlerCallback, serverPort, firewallCallback, runListenerInItsOwnTask);
                     }
                 #endif
 
             #endif
 
 
-            bool __setup_SSL__ (unsigned char *__server_key_der__, unsigned int __server_cert_der_len__, unsigned char *__server_cert_der__, unsigned int __server_key_der_len__);
+            bool __setup_SSL__ (unsigned char *server_cert_der, unsigned int server_cert_der_len, unsigned char *server_key_der, unsigned int server_key_der_len);
 
             tcpConnection_t *__createConnectionInstance__ (int connectionSocket, char *clientIP, char *serverIP) override;
 
             // accept any connection, the client will get notified in __createConnectionInstance__
             inline tcpConnection_t *accept () __attribute__((always_inline)) { 
-                if (heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT) < HTTPS_CONNECTION_STACK_SIZE) { 
+                if (heap_caps_get_largest_free_block (MALLOC_CAP_INTERNAL) < HTTPS_CONNECTION_STACK_SIZE) { 
                     // There is not a memory block large enough evailable to start new task that would handle the new connection.
                     // If we ::accept () the connection now we would only have to report503 "HTTP/1.0 503 Service unavailable
                     // to the client later. But if we don't call ::accept () now the incoming connection will wait for a while,
@@ -339,12 +348,6 @@ Edit/view: https://cascii.app/e83d5
 
         private:
 
-            bool __freeBuffersWhenDestructed__ = false;
-            unsigned char *__server_key_der__ = NULL;
-            unsigned int __server_cert_der_len__ = 0;
-            unsigned char *__server_cert_der__ = NULL;
-            unsigned int __server_key_der_len__ = 0;
-
             WOLFSSL_CTX* __ctx__ = NULL;
     };
 
@@ -355,20 +358,18 @@ Edit/view: https://cascii.app/e83d5
             __ctx__ = NULL;
         }
         tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
-        if (__freeBuffersWhenDestructed__) {
-            if (__server_key_der__) free (__server_key_der__);
-            if (__server_cert_der__) free (__server_cert_der__);
-        }
     }
 
-    bool httpsServer_t::__setup_SSL__ (unsigned char *__server_key_der__, unsigned int __server_cert_der_len__, unsigned char *__server_cert_der__, unsigned int __server_key_der_len__) {
+    bool httpsServer_t::__setup_SSL__ (unsigned char *server_cert_der, unsigned int server_cert_der_len, unsigned char *server_key_der, unsigned int server_key_der_len) {
+        #define CTX_CA_CERT_TYPE WOLFSSL_FILETYPE_ASN1 // for binary .der certificate format
         #define CTX_SERVER_KEY_TYPE WOLFSSL_FILETYPE_ASN1 // for binary .der format
 
         randomSeed (esp_random ());
 
         // Initialize wolfSSL before assigning ctx
         if (tlsSystem.Init () != WOLFSSL_SUCCESS) { // if (wolfSSL_Init () != WOLFSSL_SUCCESS) {
-            cout << ( dmesgQueue << "[httpsServer] " "wolfSSL_Init failed" );
+            dmesgQueue << "[httpsServer] " "wolfSSL_Init failed";
+            Serial.printf ("[httpsServer] " "wolfSSL_Init failed" " free=%u largest=%u min=%u %s, %i, %s\n", heap_caps_get_free_size (MALLOC_CAP_DEFAULT), heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT), heap_caps_get_minimum_free_size (MALLOC_CAP_DEFAULT), __FILE__, __LINE__, __func__);
             return false;
         }
 
@@ -379,7 +380,8 @@ Edit/view: https://cascii.app/e83d5
         * method = wolfTLSv1_3_client_method();   only TLS 1.3
         *
         * see Arduino\libraries\wolfssl\src\user_settings.h */
-        method = wolfSSLv23_server_method ();
+        
+		method = wolfSSLv23_server_method ();
         if (method == NULL) {
             cout << ( dmesgQueue << "[httpsServer] " "wolfSSLv23_server_method failed" );
             tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
@@ -388,29 +390,30 @@ Edit/view: https://cascii.app/e83d5
 
         __ctx__ = wolfSSL_CTX_new (method);
         if (__ctx__ == NULL) {
-            cout << ( dmesgQueue << "[httpsServer] " "wolfSSL_CTX_new failed" );
+            dmesgQueue << "[httpsServer] " "wolfSSL_CTX_new failed";
+            Serial.printf ("[httpsServer] " "wolfSSL_CTX_new failed" " free=%u largest=%u min=%u %s, %i, %s\n", heap_caps_get_free_size (MALLOC_CAP_DEFAULT), heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT), heap_caps_get_minimum_free_size (MALLOC_CAP_DEFAULT), __FILE__, __LINE__, __func__);
             tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
             return false;
         }                    
 
-        // Use built-in validation, No verification callback function:
-        wolfSSL_CTX_set_verify (__ctx__, SSL_VERIFY_NONE, 0);
-
-        char wc_error_message [81];
-
         // Serial.println("Initializing certificates...");
-        if (wolfSSL_CTX_use_certificate_buffer (__ctx__, __server_cert_der__, __server_cert_der_len__, CTX_CA_CERT_TYPE) != WOLFSSL_SUCCESS) {
-            cout << ( dmesgQueue << "[httpsServer] " "wolfSSL_CTX_use_certificate_buffer failed: " << wc_error_message );
+        if (wolfSSL_CTX_use_certificate_buffer (__ctx__, server_cert_der, server_cert_der_len, CTX_CA_CERT_TYPE) != WOLFSSL_SUCCESS) {
+			int err = wolfSSL_get_error (NULL, 0); 
+			cout << ( dmesgQueue << "[httpsServer] " "wolfSSL_CTX_use_certificate_buffer failed: " << err ); // wolfSSL_ERR_reason_error_string (err) );
             tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
             return false;
         }
 
         // Setup private server key
-        if (wolfSSL_CTX_use_PrivateKey_buffer (__ctx__, __server_key_der__, __server_key_der_len__, CTX_SERVER_KEY_TYPE) != WOLFSSL_SUCCESS) {
-            cout << ( dmesgQueue << "[httpsServer] " "wolfSSL_CTX_use_PrivateKey_buffer failed: " << wc_error_message );
+        if (wolfSSL_CTX_use_PrivateKey_buffer (__ctx__, server_key_der, server_key_der_len, CTX_SERVER_KEY_TYPE) != WOLFSSL_SUCCESS) {
+			int err = wolfSSL_get_error (NULL, 0); 
+			cout << ( dmesgQueue << "[httpsServer] " "wolfSSL_CTX_use_PrivateKey_buffer failed: " << err ); // wolfSSL_ERR_reason_error_string (err) );
             tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
             return false;
         }
+
+        // Use built-in validation, No verification callback function:
+        wolfSSL_CTX_set_verify (__ctx__, SSL_VERIFY_NONE, 0);
 
         return true;
     }
@@ -419,7 +422,16 @@ Edit/view: https://cascii.app/e83d5
     tcpConnection_t *httpsServer_t::__createConnectionInstance__ (int connectionSocket, char *clientIP, char *serverIP) {
         tlsConnection_t *tlsConnection = new (std::nothrow) tlsConnection_t (connectionSocket, clientIP, serverIP, __ctx__);
         if (!tlsConnection) {
-            cout << ( dmesgQueue << "[httpsServer] " "can't create connection instance, out of memory" );
+            dmesgQueue << "[httpsServer] " "can't create connection instance, out of memory";
+            cout << "[httpsServer] " "can't create connection instance, out of memory" " [" << __FILE__ << ", " << __LINE__ << ", " << __func__ << "]\r\n";
+            xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
+            close (connectionSocket); // normally tcpConnection would do this but if it is not created we have to do it here since the connection was not created
+            xSemaphoreGive (getLwIpMutex ());
+            return NULL;
+        }
+
+        if (tlsConnection->errNo ()) {
+            cout << ( dmesgQueue << "[httpsServer] " "can't create connection instance, " << tlsConnection->errText () );
             xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
             close (connectionSocket); // normally tcpConnection would do this but if it is not created we have to do it here since the connection was not created
             xSemaphoreGive (getLwIpMutex ());
@@ -428,7 +440,8 @@ Edit/view: https://cascii.app/e83d5
 
         httpsConnection_t *httpsConnection = new (std::nothrow) httpsConnection_t (tlsConnection, __fileSystem__, __replyWithFileContentPtr__, __httpRequestHandlerCallback__, __wsRequestHandlerCallback__);
         if (!httpsConnection) {
-            cout << ( dmesgQueue << "[httpsServer] " "can't create connection instance, out of memory" );
+            dmesgQueue << "[httpsServer] " "can't create connection instance, out of memory";
+            cout << "[httpsServer] " "can't create connection instance, out of memory" " [" << __FILE__ << ", " << __LINE__ << ", " << __func__ << "]\r\n";
             delete (tlsConnection);
             return NULL;
         }
@@ -459,7 +472,9 @@ Edit/view: https://cascii.app/e83d5
                                                             }
                                     , "httpsConn", HTTPS_CONNECTION_STACK_SIZE, httpsConnection, (tskIDLE_PRIORITY + 1), NULL)) {
 
-            cout << ( dmesgQueue << "[httpsServer] " "can't create connection task, out of memory" );
+            dmesgQueue << "[httpsServer] " "can't create connection task, out of memory";
+            cout << "[httpsServer] " "can't create connection task, out of memory" " [" << __FILE__ << ", " << __LINE__ << ", " << __func__ << "]\r\n";
+
             delete (httpsConnection); // (httpsConnection will delete tcpConnection itself) normally tcpConnection would do this but if it is not running we have to do it here
             return NULL;
         }

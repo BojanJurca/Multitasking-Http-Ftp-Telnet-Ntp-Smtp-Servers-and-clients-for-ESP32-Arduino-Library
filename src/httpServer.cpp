@@ -5,7 +5,7 @@
     This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
   
 
-    Aug 12, 2026, Bojan Jurca
+    Sep 9, 2026, Bojan Jurca
 
 
     Multitasking/thread-safe classes and functions: 
@@ -132,7 +132,7 @@ void httpServer_t::webSocket_t::setHttpReplyHeaderField (Cstring<300> fieldName,
     __httpReplyHeader__ += "\r\n"; 
 }
 
-void httpServer_t::webSocket_t::setHttpReplyCookie (Cstring<300> cookieName, Cstring<300> cookieValue, time_t expires, Cstring<300> path) {
+void httpServer_t::webSocket_t::setHttpReplyCookie (Cstring<300> cookieName, Cstring<300> cookieValue, time_t expires, Cstring<300> path, bool secure, bool httpOnly, const char *sameSite) {
     char e [50] = "";
     if (expires) {
         if (expires < 1600000000) { // 1600000000 ~2020
@@ -140,14 +140,25 @@ void httpServer_t::webSocket_t::setHttpReplyCookie (Cstring<300> cookieName, Cst
         }
         struct tm st;
         gmtime_r (&expires, &st);
-        strftime (e, sizeof (e), "; Expires=%a, %d %b %Y %H:%M:%S GMT", &st);
+        strftime (e, sizeof (e), ";Expires=%a, %d %b %Y %H:%M:%S GMT", &st);
     }
     // save whole fieldValue into cookieName to save stack space
     cookieName += "=";
     cookieName += cookieValue;
-    cookieName += "; Path=";
+    cookieName += ";Path=";
     cookieName += path;
     cookieName += e;
+    if (secure)
+        cookieName += ";Secure";
+    if (httpOnly)
+        cookieName += ";HttpOnly";
+    if (sameSite && *sameSite) {
+        cookieName += ";SameSite=";
+        cookieName += sameSite;
+    }
+    if (cookieName.errorFlags ()) {
+        cout << ( dmesgQueue << "[httpConn] " "not enough space to set cookie" );
+    }
     setHttpReplyHeaderField ("Set-Cookie", cookieName);
 }
 
@@ -485,7 +496,7 @@ void httpServer_t::webSocket_t::__runConnectionTask__ () {
             #if CONFIG_IDF_TARGET_ESP32S2
                 setHttpReplyHeaderField ("Connection", "close"); // ESP32 S2 has limited memory
             #else
-                if (heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT) < HTTP_CONNECTION_STACK_SIZE) // there is not a memory block large enough evailable to start new task that would handle the new connection
+                if (heap_caps_get_largest_free_block (MALLOC_CAP_INTERNAL) < HTTP_CONNECTION_STACK_SIZE) // there is not a memory block large enough evailable to start new task that would handle the new connection
                     setHttpReplyHeaderField ("Connection", "close");
             #endif
 
@@ -542,14 +553,14 @@ void httpServer_t::webSocket_t::__runConnectionTask__ () {
         // check how much stack did we use
         UBaseType_t highWaterMark = uxTaskGetStackHighWaterMark (NULL);
         if (__lastHighWaterMark__ > highWaterMark) {
-            cout << ( dmesgQueue << "[httpConn] " "new HTTP connection stack high water mark reached: " << highWaterMark << " not used bytes" );
+            cout << ( dmesgQueue << "[httpConn] " "new HTTP connection stack high water mark reached: " << highWaterMark << " bytes not used" );
             __lastHighWaterMark__ = highWaterMark;
         }
 
         // if we are running out of ESP32's resources we won't try to keep the connection alive, this would slow down the server a bit but it would let still it handle requests from different clients
         if (getSocket () >= LWIP_SOCKET_OFFSET + MEMP_NUM_NETCONN - 2)  // running out of sockets
             return;
-        if (heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT) < HTTP_CONNECTION_STACK_SIZE) // there is not a memory block large enough evailable to start new tasks that would handle the new connection
+        if (heap_caps_get_largest_free_block (MALLOC_CAP_INTERNAL) < HTTP_CONNECTION_STACK_SIZE) // there is not a memory block large enough evailable to start new tasks that would handle the new connection
             return;
 
         // restore the default values of member variables for the next HTTP request on this connection                              
@@ -577,6 +588,14 @@ tcpConnection_t *httpServer_t::__createConnectionInstance__ (int connectionSocke
         cout << ( dmesgQueue << "[httpServer] " "can't create connection instance, out of memory" );
         xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
         send (connectionSocket, reply503, strlen (reply503), 0);
+        close (connectionSocket); // normally tcpConnection would do this but if it is not created we have to do it here since the connection was not created
+        xSemaphoreGive (getLwIpMutex ());
+        return NULL;
+    }
+
+    if (tcpConnection->errNo ()) {
+        cout << ( dmesgQueue << "[httpsServer] " "can't create connection instance, " << tcpConnection->errText () );
+        xSemaphoreTake (getLwIpMutex (), portMAX_DELAY);
         close (connectionSocket); // normally tcpConnection would do this but if it is not created we have to do it here since the connection was not created
         xSemaphoreGive (getLwIpMutex ());
         return NULL;

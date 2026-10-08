@@ -5,7 +5,7 @@
     This file is part of Multitasking Esp32 HTTP FTP Telnet servers for Arduino project: https://github.com/BojanJurca/Multitasking-Esp32-HTTP-FTP-Telnet-servers-for-Arduino
   
 
-    May 22, 2026, Bojan Jurca
+    Oct 10, 2026, Bojan Jurca
 
 
     Multitasking/thread-safe classes and functions: 
@@ -91,6 +91,42 @@ Edit/view: https://cascii.app/e83d5
     #ifdef __THREAD_SAFE_FS__
         // sends message, returns error or success text, fills empty parameters with the ones from configuration file /etc/mail/sendmail.cf
         inline Cstring<300> sendMail (threadSafeFS::FS& fileSystem, const char *message = "", const char *subject = "", const char *to = "", const char *from = "", const char *password = "", const char *userName = "", int smtpPort = 0, const char *smtpServer = "") {
+
+            // create directory structure and readme.txt file
+            if (!fileSystem.isFile ("/etc/mail/sendmail.cf")) {
+                fileSystem.mkdir ("/etc");
+                fileSystem.mkdir ("/etc/mail");
+
+                threadSafeFS::File f = fileSystem.open ("/etc/mail/sendmail.cf", "w");
+                if (f) {
+                    f.print ("# this configuration file contains default values for sendMail function.\r\n"
+                             "# (you don't have to define every tag here)\r\n"
+                             "\r\n"
+                             "# SMTP server name\r\n"
+                             "smtpServer   your.smtp.sever.name\r\n"
+                             "\r\n"
+                             "# SMTP port (default SMTP port is 25)\r\n"
+                             "smtpPort     25\r\n"
+                             "# your user name for SMTP server\r\n"
+                             "userName     yourUserName\r\n"
+                             "# your password for SMTP server\r\n"
+                             "password     yourPassword\r\n"
+                             "# From field of SMTP protocol usually contains your email address\r\n"
+                             "from         \"your nick name\"<sender.name@mailServer.com>\r\n"
+                             "# To field of SMTP protocol\r\n"
+                             "to           \"nickName\"<receiver.name@mailServer.com>\r\n"
+                             "# Subject field of SMTP profocol\r\n"
+                             "subject      Test\r\n"
+                             "# message body text\r\n"
+                             "message      <html lang='en'><p style=\"font-family:'verdana'\">This is just a test message.</p></html>\r\n");
+                    f.close ();
+                    cout << "Place your default sendmail arguments to /etc/mail/sendmail.cf\r\n";
+                } else {
+                    cout << ( dmesgQueue << "[smtpClient] " "/etc/mail/sendmail.cf" );
+                }
+            }
+
+
             char buffer [MAX_ETC_MAIL_SENDMAIL_CF + 1];
             strcpy (buffer, "\n");
             if (fileSystem.readConfiguration (buffer + 1, sizeof (buffer) - 3, "/etc/mail/sendmail.cf")) {
