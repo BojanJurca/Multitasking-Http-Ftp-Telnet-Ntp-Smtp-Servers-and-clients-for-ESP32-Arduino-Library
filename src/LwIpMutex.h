@@ -17,10 +17,11 @@
   #include <WiFi.h>
 
 
-  // singleton mutex definition
   inline SemaphoreHandle_t getLwIpMutex () {
-      static SemaphoreHandle_t semaphore = xSemaphoreCreateMutex ();
-      return semaphore;
+      static StaticSemaphore_t mutexBuffer;
+      static SemaphoreHandle_t mutex = xSemaphoreCreateMutexStatic (&mutexBuffer);
+
+      return mutex;
   }
 
 #endif

@@ -357,7 +357,7 @@ Edit/view: https://cascii.app/e83d5
             wolfSSL_CTX_free (__ctx__);
             __ctx__ = NULL;
         }
-        tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
+        // tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
     }
 
     bool httpsServer_t::__setup_SSL__ (unsigned char *server_cert_der, unsigned int server_cert_der_len, unsigned char *server_key_der, unsigned int server_key_der_len) {
@@ -367,11 +367,11 @@ Edit/view: https://cascii.app/e83d5
         randomSeed (esp_random ());
 
         // Initialize wolfSSL before assigning ctx
-        if (tlsSystem.Init () != WOLFSSL_SUCCESS) { // if (wolfSSL_Init () != WOLFSSL_SUCCESS) {
-            dmesgQueue << "[httpsServer] " "wolfSSL_Init failed";
-            Serial.printf ("[httpsServer] " "wolfSSL_Init failed" " free=%u largest=%u min=%u %s, %i, %s\n", heap_caps_get_free_size (MALLOC_CAP_DEFAULT), heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT), heap_caps_get_minimum_free_size (MALLOC_CAP_DEFAULT), __FILE__, __LINE__, __func__);
-            return false;
-        }
+        // if (tlsSystem.Init () != WOLFSSL_SUCCESS) { // if (wolfSSL_Init () != WOLFSSL_SUCCESS) {
+        //     dmesgQueue << "[httpsServer] " "wolfSSL_Init failed";
+        //     Serial.printf ("[httpsServer] " "wolfSSL_Init failed" " free=%u largest=%u min=%u %s, %i, %s\n", heap_caps_get_free_size (MALLOC_CAP_DEFAULT), heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT), heap_caps_get_minimum_free_size (MALLOC_CAP_DEFAULT), __FILE__, __LINE__, __func__);
+        //     return false;
+        // }
 
         WOLFSSL_METHOD* method;
         /* See companion server example with wolfSSLv23_server_method here.
@@ -384,7 +384,7 @@ Edit/view: https://cascii.app/e83d5
 		method = wolfSSLv23_server_method ();
         if (method == NULL) {
             cout << ( dmesgQueue << "[httpsServer] " "wolfSSLv23_server_method failed" );
-            tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
+            // tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
             return false;
         }
 
@@ -392,7 +392,7 @@ Edit/view: https://cascii.app/e83d5
         if (__ctx__ == NULL) {
             dmesgQueue << "[httpsServer] " "wolfSSL_CTX_new failed";
             Serial.printf ("[httpsServer] " "wolfSSL_CTX_new failed" " free=%u largest=%u min=%u %s, %i, %s\n", heap_caps_get_free_size (MALLOC_CAP_DEFAULT), heap_caps_get_largest_free_block (MALLOC_CAP_DEFAULT), heap_caps_get_minimum_free_size (MALLOC_CAP_DEFAULT), __FILE__, __LINE__, __func__);
-            tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
+            // tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
             return false;
         }                    
 
@@ -400,7 +400,7 @@ Edit/view: https://cascii.app/e83d5
         if (wolfSSL_CTX_use_certificate_buffer (__ctx__, server_cert_der, server_cert_der_len, CTX_CA_CERT_TYPE) != WOLFSSL_SUCCESS) {
 			int err = wolfSSL_get_error (NULL, 0); 
 			cout << ( dmesgQueue << "[httpsServer] " "wolfSSL_CTX_use_certificate_buffer failed: " << err ); // wolfSSL_ERR_reason_error_string (err) );
-            tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
+            // tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
             return false;
         }
 
@@ -408,7 +408,7 @@ Edit/view: https://cascii.app/e83d5
         if (wolfSSL_CTX_use_PrivateKey_buffer (__ctx__, server_key_der, server_key_der_len, CTX_SERVER_KEY_TYPE) != WOLFSSL_SUCCESS) {
 			int err = wolfSSL_get_error (NULL, 0); 
 			cout << ( dmesgQueue << "[httpsServer] " "wolfSSL_CTX_use_PrivateKey_buffer failed: " << err ); // wolfSSL_ERR_reason_error_string (err) );
-            tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
+            // tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
             return false;
         }
 

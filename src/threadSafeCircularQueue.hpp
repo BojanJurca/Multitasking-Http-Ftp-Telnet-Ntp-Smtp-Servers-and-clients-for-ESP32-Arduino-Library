@@ -4,7 +4,7 @@
     This file is part of Multitasking HTTP, FTP, Telnet, NTP, SMTP servers and clients for ESP32 - Arduino library: https://github.com/BojanJurca/Multitasking-Http-Ftp-Telnet-Ntp-Smtp-Servers-and-clients-for-ESP32-Arduino-Library
 
  
-    May 22, 2022, Bojan Jurca
+    Oct 10, 2026, Bojan Jurca
 
 */
 
@@ -22,9 +22,9 @@
 
             threadSafeCircularQueue () { queue<queueType>::reserve (maxSize); }
 
-            void Lock () { xSemaphoreTakeRecursive (__semaphore__, portMAX_DELAY); } 
+            void Lock () { xSemaphoreTakeRecursive (__mutex__, portMAX_DELAY); } 
 
-            void Unlock () { xSemaphoreGiveRecursive (__semaphore__); }
+            void Unlock () { xSemaphoreGiveRecursive (__mutex__); }
 
             void push_back (queueType element) {
                 Lock ();
@@ -72,8 +72,9 @@
 
 
         private:
-
-            SemaphoreHandle_t __semaphore__ = xSemaphoreCreateRecursiveMutex (); 
+            
+            StaticSemaphore_t __mutexBuffer__;
+            SemaphoreHandle_t __mutex__ = xSemaphoreCreateRecursiveMutexStatic (&__mutexBuffer__); 
 
     };
 

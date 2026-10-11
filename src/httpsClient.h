@@ -230,6 +230,16 @@ Edit/view: https://cascii.app/e83d5
     class httpsClient_t {
         public:
 
+            httpsClient_t () {
+                // --- WolfSSL init ---
+                // tlsSystem.Init (); // wolfSSL_Init ();
+            }
+
+            ~httpsClient_t () {
+                // tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
+            }
+
+
             // initializes httpsReply, returns error string or "" for success
             const char *httpsRequest (String& httpsReply, const char *httpsServer, int httpsPort = 443, const char *httpsAddress = "/", const char *httpsMethod = "GET", unsigned long timeOut = HTTPS_REPLY_TIME_OUT) {
                 if (!WiFi.isConnected () || WiFi.localIP () == IPAddress (0, 0, 0, 0))
@@ -237,6 +247,7 @@ Edit/view: https://cascii.app/e83d5
 
                 // WolfSSL need more stack memory that Arduino normaly provides so run
                 // the rest of the code in a separate task and wait for it to finish
+                StaticSemaphore_t __lockBuffer__;
                 httpsReply = "";
                 struct params_t {
                     String& httpsReply;
@@ -247,12 +258,12 @@ Edit/view: https://cascii.app/e83d5
                     unsigned long timeOut;
                     SemaphoreHandle_t done;
                     const char *retVal;
-                } params = { httpsReply, httpsServer, httpsPort, httpsAddress, httpsMethod, timeOut, xSemaphoreCreateBinary (), "" };
+                } params = { httpsReply, httpsServer, httpsPort, httpsAddress, httpsMethod, timeOut, xSemaphoreCreateBinaryStatic (&__lockBuffer__), "" };
                 if (pdPASS == xTaskCreate ([] (void *ptr) {
                                                             params_t *params = static_cast<params_t*>(ptr);
 
                                                             // --- WolfSSL init ---
-                                                            tlsSystem.Init (); // wolfSSL_Init ();
+                                                            // tlsSystem.Init (); // wolfSSL_Init ();
 
                                                             params->retVal = __httpsRequestWorker__ (params->httpsReply, params->httpsServer, params->httpsPort, params->httpsAddress, params->httpsMethod, params->timeOut);
 
@@ -263,7 +274,7 @@ Edit/view: https://cascii.app/e83d5
                                                                 lastHighWaterMark = highWaterMark;
                                                             }
 
-                                                            tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
+                                                            // tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
 
                                                             xSemaphoreGive (params->done);
                                                             vTaskDelete (NULL); // success
@@ -273,6 +284,7 @@ Edit/view: https://cascii.app/e83d5
                 } else {
                     params.retVal = "Out of memory, cannot run httpsClient"; 
                 }
+                // vSemaphoreDelete (params.done);
 
                 return params.retVal;
             }    
@@ -286,6 +298,7 @@ Edit/view: https://cascii.app/e83d5
 
                     // WolfSSL need more stack memory that Arduino normaly provides so run
                     // the rest of the code in a separate task and wait for it to finish
+                    StaticSemaphore_t __lockBuffer__;
                     httpsReply = "";
                     struct params_t {
                         threadSafeFS::FS& fileSystem;
@@ -297,12 +310,12 @@ Edit/view: https://cascii.app/e83d5
                         unsigned long timeOut;
                         SemaphoreHandle_t done;
                         const char *retVal;
-                    } params = { fileSystem, httpsReply, httpsServer, httpsPort, httpsAddress, httpsMethod, timeOut, xSemaphoreCreateBinary (), "" };
+                    } params = { fileSystem, httpsReply, httpsServer, httpsPort, httpsAddress, httpsMethod, timeOut, xSemaphoreCreateBinaryStatic (&__lockBuffer__), "" };
                     if (pdPASS == xTaskCreate ([] (void *ptr) {
                                                                 params_t *params = static_cast<params_t*>(ptr);
 
                                                                 // --- WolfSSL init ---
-                                                                tlsSystem.Init (); // wolfSSL_Init ();
+                                                                // tlsSystem.Init (); // wolfSSL_Init ();
 
                                                                 params->retVal = __httpsRequestWorker__ (params->fileSystem, params->httpsReply, params->httpsServer, params->httpsPort, params->httpsAddress, params->httpsMethod, params->timeOut);
 
@@ -313,7 +326,7 @@ Edit/view: https://cascii.app/e83d5
                                                                     lastHighWaterMark = highWaterMark;
                                                                 }
 
-                                                                tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
+                                                                // tlsSystem.Cleanup (); // wolfSSL_Cleanup ();
 
                                                                 xSemaphoreGive (params->done);
                                                                 vTaskDelete (NULL); // success
@@ -323,6 +336,7 @@ Edit/view: https://cascii.app/e83d5
                     } else {
                         params.retVal = "Out of memory, cannot run httpsClient";
                     }
+                    // vSemaphoreDelete (params.done);
 
                     return params.retVal;
                 }
@@ -330,7 +344,7 @@ Edit/view: https://cascii.app/e83d5
     };
 
 
-    [[deprecated("Use const static char *httpsClient_t ().httpsRequest (String& httpsReply, const char *httpsServer, int httpsPort, const char *httpsAddress, const char *httpsMethod, unsigned long timeOut)")]]
+    [[deprecated("Use const static char *httpsClient_t::httpsRequest (String& httpsReply, const char *httpsServer, int httpsPort, const char *httpsAddress, const char *httpsMethod, unsigned long timeOut)")]]
     inline String httpsRequest (const char *httpsServer, int httpsPort = 443, const char *httpsAddress = "/", const char *httpsMethod = "GET", unsigned long timeOut = HTTPS_REPLY_TIME_OUT) {
         String httpsReply;
         const char *retVal = httpsClient_t ().httpsRequest (httpsReply, httpsServer, httpsPort, httpsAddress, httpsMethod);

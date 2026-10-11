@@ -90,31 +90,43 @@ Edit/view: https://cascii.app/e83d5
 
     class tlsSystem_t {
         private:
-            static volatile int initialized;
-            static SemaphoreHandle_t mutex;
+            static volatile int __initialized__;
+            static StaticSemaphore_t __mutexBuffer__;
+            static SemaphoreHandle_t __mutex__;
         public:
+
+            static tlsSystem_t& instance () {
+                static tlsSystem_t obj;
+                return obj;
+            }
+
             int Init () {
-                xSemaphoreTake (mutex, portMAX_DELAY);
+                xSemaphoreTake (__mutex__, portMAX_DELAY);
                     int ret = WOLFSSL_SUCCESS;
-                    if (!initialized)
+                    if (!__initialized__)
                         ret = wolfSSL_Init ();
                     if (ret == WOLFSSL_SUCCESS)
-                    initialized ++;
-                xSemaphoreGive (mutex);
+                    __initialized__ ++;
+                xSemaphoreGive (__mutex__);
                 return ret;
             }
             void Cleanup () {
-                xSemaphoreTake (mutex, portMAX_DELAY);
-                    initialized --;
-                    if (!initialized)
-                        wolfSSL_Cleanup ();
-                xSemaphoreGive (mutex);
+                xSemaphoreTake (__mutex__, portMAX_DELAY);
+                    if (__initialized__ > 0) {
+                        __initialized__--;
+                        if (__initialized__ == 0)
+                            wolfSSL_Cleanup ();
+                    }
+                xSemaphoreGive (__mutex__);
             }
     };
-    int volatile tlsSystem_t::initialized = 0;
-    SemaphoreHandle_t tlsSystem_t::mutex = xSemaphoreCreateMutex ();
+    int volatile tlsSystem_t::__initialized__ = 0;
+    StaticSemaphore_t tlsSystem_t::__mutexBuffer__;
+    SemaphoreHandle_t tlsSystem_t::__mutex__ = xSemaphoreCreateMutexStatic (&__mutexBuffer__);
     // global singleton
-    tlsSystem_t tlsSystem;
+    inline tlsSystem_t& tlsSystem = tlsSystem_t::instance ();
+    // initialize WolfSSL only once, at startup
+    int __tlsSystemInitialized__ = tlsSystem.Init ();
 
 
     class tlsConnection_t : public tcpConnection_t {

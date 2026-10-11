@@ -81,15 +81,15 @@ Edit/view: https://cascii.app/e83d5
 
     // for setsockopt (... TCP_KEEPIDLE
     #ifndef KEEP_IDLE
-        #define KEEP_IDLE (900) // 15 min - wait before first test packet
+        #define KEEP_IDLE (30) // 30 s - wait before first test packet
     #endif
     // for setsockopt (... TCP_KEEPINTVL
     #ifndef KEEP_INTVL
-        #define KEEP_INTVL (900) // 15 min - wait before first test packet
+        #define KEEP_INTVL (30) // 30 s - interval between test packets
     #endif
     // for setsockopt (... TCP_KEEPCNT
     #ifndef KEEP_CNT
-        #define KEEP_CNT (3) // report error after 3 failed attepts
+        #define KEEP_CNT (3) // report error after 3 failed attepts (90 s altogether)
     #endif
     // 1h altogether before error is detected
 
